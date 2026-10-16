@@ -554,6 +554,12 @@ class AnalysisController(final AnalysisOptions options)
     includeVariations: includeVariations,
   );
 
+  /// Played moves up to the displayed position, excluding comments, tags and future moves.
+  String currentLineSan() => _root
+      .branchesOn(state.requireValue.currentPath)
+      .map((branch) => branch.sanMove.san)
+      .join(' ');
+
   void addCurrentPathAsPremove() {
     state = AsyncData(
       state.requireValue.copyWith(

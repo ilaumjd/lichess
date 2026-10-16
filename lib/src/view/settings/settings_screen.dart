@@ -14,6 +14,7 @@ import 'package:lichess_mobile/src/utils/l10n_context.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
 import 'package:lichess_mobile/src/view/home/home_tab_screen.dart';
 import 'package:lichess_mobile/src/view/settings/account_preferences_screen.dart';
+import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
 import 'package:lichess_mobile/src/view/settings/app_log_settings_screen.dart';
 import 'package:lichess_mobile/src/view/settings/board_settings_screen.dart';
 import 'package:lichess_mobile/src/view/settings/engine_settings_screen.dart';
@@ -120,6 +121,11 @@ class const SettingsScreen({super.key}) extends ConsumerWidget {
                 onTap: () {
                   Navigator.of(context).push(EngineSettingsScreen.buildRoute());
                 },
+              ),
+              ListTile(
+                leading: const Icon(Icons.school_outlined),
+                title: const Text('AI coach'),
+                onTap: () => Navigator.of(context).push(AiCoachSettingsScreen.buildRoute()),
               ),
               SettingsListTile(
                 icon: const Icon(Icons.language_outlined),

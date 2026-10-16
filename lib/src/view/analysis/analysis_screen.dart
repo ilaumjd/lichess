@@ -1,6 +1,7 @@
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_controller.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_preferences.dart';
 import 'package:lichess_mobile/src/model/auth/auth_controller.dart';
@@ -12,6 +13,7 @@ import 'package:lichess_mobile/src/utils/immersive_mode.dart';
 import 'package:lichess_mobile/src/utils/l10n_context.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
 import 'package:lichess_mobile/src/utils/share.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_actions.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_layout.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_player_widget.dart';
@@ -564,6 +566,31 @@ class const _AnalysisMenu({required final AnalysisOptions options}) extends Cons
       icon: const Icon(Icons.more_horiz),
       semanticsLabel: context.l10n.menu,
       actions: [
+        if (analysisState.isComputerAnalysisAllowed && analysisState.variant == Variant.standard)
+          ContextMenuAction(
+            icon: Icons.school_outlined,
+            label: 'Explain position (AI)',
+            onPressed: () {
+              final current = ref.read(analysisControllerProvider(options)).requireValue;
+              if (!current.isComputerAnalysisAllowed || current.variant != Variant.standard) return;
+              try {
+                if (current.engineInThreatMode) {
+                  throw const AiCoachException('Turn off threat mode before asking the AI coach.');
+                }
+                final moves = ref
+                    .read(analysisControllerProvider(options).notifier)
+                    .currentLineSan();
+                final evidence = makeAiCoachEvidence(
+                  current.currentPosition,
+                  current.currentNode.eval,
+                  moves,
+                );
+                Navigator.of(context).push(AiCoachScreen.buildRoute(evidence: evidence));
+              } on AiCoachException catch (error) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+              }
+            },
+          ),
         if (archivedGame != null)
           ContextMenuAction(
             icon: archivedGame.data.bookmarked == true
