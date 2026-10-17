@@ -1,3 +1,4 @@
+import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
@@ -32,6 +33,19 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
   bool _busy = false;
   String? _answer;
   String? _error;
+
+  /// The model the shown explanation was made with, which keys its saved conversation.
+  String? _model;
+  IList<AiCoachFollowUp> _followUps = const IListConst([]);
+  final _questionController = TextEditingController();
+  bool _asking = false;
+  String? _followUpError;
+
+  @override
+  void dispose() {
+    _questionController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -80,10 +94,12 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
           await SecureStorage.instance.read(key: aiCoachModelStorage) ?? aiCoachDefaultModel;
       if (!mounted) return;
       final history = ref.read(aiCoachHistoryProvider.notifier);
-      final saved = history.find(model: model, evidence: request.evidence);
+      final saved = history.entryFor(model: model, evidence: request.evidence);
       if (saved != null) {
         setState(() {
-          _answer = saved;
+          _model = model;
+          _answer = saved.explanation;
+          _followUps = saved.followUps;
           _busy = false;
         });
         return;
@@ -105,7 +121,9 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
       }
       if (mounted) {
         setState(() {
+          _model = model;
           _answer = answer;
+          _followUps = const IListConst([]);
           _error = saveError;
           _busy = false;
         });
@@ -115,6 +133,61 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
         setState(() {
           _busy = false;
           _error = error is AiCoachException ? error.message : 'Could not read AI coach settings.';
+        });
+      }
+    }
+  }
+
+  Future<void> _ask(AiCoachRequest request, String question) async {
+    final firstAnswer = _answer;
+    final model = _model;
+    if (firstAnswer == null || model == null || _asking) return;
+    setState(() {
+      _asking = true;
+      _followUpError = null;
+    });
+    try {
+      final key = await SecureStorage.instance.read(key: aiCoachKeyStorage) ?? '';
+      if (!mounted) return;
+      final answer = await ref
+          .read(aiCoachProvider)
+          .followUp(
+            apiKey: key,
+            model: model,
+            evidence: request.evidence,
+            firstAnswer: firstAnswer,
+            previous: _followUps.unlock,
+            question: question,
+            allowedMoves: request.allowedMoves,
+          );
+      String? warning;
+      try {
+        await ref
+            .read(aiCoachHistoryProvider.notifier)
+            .addFollowUp(
+              model: model,
+              evidence: request.evidence,
+              question: question.trim(),
+              answer: answer,
+            );
+      } on Object {
+        warning = 'Answer received, but it could not be saved on this device.';
+      }
+      if (mounted) {
+        setState(() {
+          _followUps = _followUps.add((question: question.trim(), answer: answer));
+          _questionController.clear();
+          _followUpError = warning;
+          _asking = false;
+        });
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() {
+          _asking = false;
+          _followUpError = error is AiCoachException
+              ? error.message
+              : 'Could not read AI coach settings.';
         });
       }
     }
@@ -194,6 +267,54 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: SelectableText(_answer!),
             ),
+          for (final turn in _followUps) ...[
+            Text('You: ${turn.question}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 16),
+              child: SelectableText(turn.answer),
+            ),
+          ],
+          if (_answer != null && request != null)
+            if (_followUps.length >= kAiCoachMaxFollowUps)
+              const Text(
+                'That is the most follow-up questions for one explanation. Ask about another '
+                'move to keep going.',
+              )
+            else ...[
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final quick in const ['Explain simpler', 'What should I do differently?'])
+                    ActionChip(
+                      label: Text(quick),
+                      onPressed: _asking ? null : () => _ask(request, quick),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _questionController,
+                enabled: !_asking,
+                minLines: 1,
+                maxLines: 4,
+                maxLength: kAiCoachMaxQuestionLength,
+                decoration: const InputDecoration(labelText: 'Ask a follow-up question'),
+              ),
+              FilledButton(
+                onPressed: _asking ? null : () => _ask(request, _questionController.text),
+                child: const Text('Ask'),
+              ),
+              if (_asking)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              if (_followUpError != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(_followUpError!),
+                ),
+            ],
         ],
       ),
     );

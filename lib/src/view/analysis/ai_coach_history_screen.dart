@@ -98,6 +98,13 @@ class const AiCoachHistoryDetailScreen({required final AiCoachHistoryEntry entry
         const SizedBox(height: 16),
         SelectableText(entry.explanation),
         const SizedBox(height: 16),
+        for (final turn in entry.followUps) ...[
+          Text('You: ${turn.question}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 16),
+            child: SelectableText(turn.answer),
+          ),
+        ],
         ExpansionTile(
           title: const Text('Position and engine evidence'),
           children: [

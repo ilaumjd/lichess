@@ -42,6 +42,7 @@ void main() {
       'model',
       'evidence',
       'explanation',
+      'followUps',
     });
   });
 
@@ -110,6 +111,82 @@ void main() {
     storage.failWrites.value = false;
     await history.save(model: 'model', evidence: 'fen', explanation: 'note');
     expect(makeContainer().read(aiCoachHistoryProvider).single.explanation, 'note');
+  });
+
+  test('follow-ups are saved with their explanation and survive a fresh container', () async {
+    final container = makeContainer();
+    final history = container.read(aiCoachHistoryProvider.notifier);
+    await history.save(model: 'model', evidence: 'fen', explanation: 'first');
+    await history.addFollowUp(model: 'model', evidence: 'fen', question: 'why?', answer: 'because');
+    await history.addFollowUp(model: 'model', evidence: 'fen', question: 'more?', answer: 'sure');
+    final restored = makeContainer().read(aiCoachHistoryProvider).single;
+    expect(restored.explanation, 'first');
+    expect(restored.followUps.map((f) => f.question), ['why?', 'more?']);
+    expect(restored.followUps.map((f) => f.answer), ['because', 'sure']);
+    expect(
+      makeContainer()
+          .read(aiCoachHistoryProvider.notifier)
+          .entryFor(model: 'model', evidence: 'fen'),
+      isNotNull,
+    );
+  });
+
+  test('a follow-up only goes to the entry for that model and evidence', () async {
+    final container = makeContainer();
+    final history = container.read(aiCoachHistoryProvider.notifier);
+    await history.save(model: 'm1', evidence: 'a', explanation: 'one');
+    await history.save(model: 'm1', evidence: 'b', explanation: 'two');
+    await history.addFollowUp(model: 'm1', evidence: 'a', question: 'q', answer: 'x');
+    final entries = container.read(aiCoachHistoryProvider);
+    expect(entries.firstWhere((e) => e.evidence == 'a').followUps, hasLength(1));
+    expect(entries.firstWhere((e) => e.evidence == 'b').followUps, isEmpty);
+  });
+
+  test('a follow-up for an explanation that is not saved changes nothing', () async {
+    final container = makeContainer();
+    final history = container.read(aiCoachHistoryProvider.notifier);
+    await history.addFollowUp(model: 'm', evidence: 'missing', question: 'q', answer: 'a');
+    expect(container.read(aiCoachHistoryProvider), isEmpty);
+  });
+
+  test('entries saved before follow-ups existed still load, with none', () async {
+    await testBinding.setInitialSharedPreferencesValues({
+      aiCoachHistoryStorageKey: jsonEncode([
+        {'savedAt': '2026-10-17T00:00:00Z', 'model': 'm', 'evidence': 'e', 'explanation': 'old'},
+      ]),
+    });
+    final entry = makeContainer().read(aiCoachHistoryProvider).single;
+    expect(entry.explanation, 'old');
+    expect(entry.followUps, isEmpty);
+  });
+
+  test('a malformed follow-up is skipped without hiding the explanation or the rest', () async {
+    await testBinding.setInitialSharedPreferencesValues({
+      aiCoachHistoryStorageKey: jsonEncode([
+        {
+          'savedAt': '2026-10-17T00:00:00Z',
+          'model': 'm',
+          'evidence': 'e',
+          'explanation': 'kept',
+          'followUps': [
+            {'question': 'only a question'},
+            {'question': 'good', 'answer': 'fine'},
+          ],
+        },
+      ]),
+    });
+    final entry = makeContainer().read(aiCoachHistoryProvider).single;
+    expect(entry.explanation, 'kept');
+    expect(entry.followUps.single.question, 'good');
+  });
+
+  test('saving the same explanation again starts a fresh conversation', () async {
+    final container = makeContainer();
+    final history = container.read(aiCoachHistoryProvider.notifier);
+    await history.save(model: 'm', evidence: 'e', explanation: 'first');
+    await history.addFollowUp(model: 'm', evidence: 'e', question: 'q', answer: 'a');
+    await history.save(model: 'm', evidence: 'e', explanation: 'second');
+    expect(container.read(aiCoachHistoryProvider).single.followUps, isEmpty);
   });
 }
 

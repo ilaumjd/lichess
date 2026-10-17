@@ -273,4 +273,130 @@ void main() {
       expect(aiCoachSystemPrompt, contains('never as moves that were played'));
     });
   });
+
+  group('follow-up questions', () {
+    Map<String, dynamic>? lastBody;
+    var calls = 0;
+
+    AiCoach coachReplying(String text) {
+      calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        lastBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': text},
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      return AiCoach(client);
+    }
+
+    List<Map<String, dynamic>> sent() =>
+        (lastBody!['messages'] as List<dynamic>).cast<Map<String, dynamic>>();
+
+    test('sends evidence, the first answer without the app note, and the question', () async {
+      final coach = coachReplying('Because the knight attacks the centre.');
+      final answer = await coach.followUp(
+        apiKey: 'fake-test-key',
+        model: 'model',
+        evidence: 'EVIDENCE',
+        firstAnswer: "Play Nf3.\n\n✓ Moves checked against Stockfish's lines.",
+        previous: const [],
+        question: 'Why?',
+      );
+      expect(answer, 'Because the knight attacks the centre.');
+      final messages = sent();
+      expect(messages.map((m) => m['role']), ['system', 'user', 'assistant', 'user']);
+      expect(messages.first['content'], contains(aiCoachFollowUpPrompt));
+      expect(messages[1]['content'], 'EVIDENCE');
+      expect(messages[2]['content'], 'Play Nf3.');
+      expect(messages[2]['content'], isNot(contains('Moves checked')));
+      expect(messages.last['content'], 'Why?');
+    });
+
+    test('sends only the most recent turns', () async {
+      final coach = coachReplying('Fine.');
+      final previous = [for (var i = 0; i < 9; i++) (question: 'q$i', answer: 'a$i')];
+      await coach.followUp(
+        apiKey: 'fake-test-key',
+        model: 'model',
+        evidence: 'EVIDENCE',
+        firstAnswer: 'first',
+        previous: previous,
+        question: 'latest',
+      );
+      final contents = sent().map((m) => m['content']).toList();
+      expect(contents, isNot(contains('q0')));
+      expect(contents, isNot(contains('q2')));
+      expect(contents, containsAll(['q3', 'a3', 'q8', 'a8', 'latest']));
+      // system + evidence + first answer + 6 turns * 2 + the question.
+      expect(sent().length, 3 + kAiCoachContextTurns * 2 + 1);
+    });
+
+    test('accepts a move the user named, but still checks everything else', () async {
+      final coach = coachReplying('I have no engine evidence about Nc3, but Qh5 is not good.');
+      final answer = await coach.followUp(
+        apiKey: 'fake-test-key',
+        model: 'model',
+        evidence: 'EVIDENCE',
+        firstAnswer: 'first',
+        previous: const [],
+        question: 'Why not Nc3?',
+        allowedMoves: {'Nf3'}.toISet(),
+      );
+      // Qh5 was neither supplied nor named by the user, so it is flagged (after one retry).
+      expect(calls, 2);
+      expect(answer, contains('Could not verify'));
+      expect(answer, contains('Qh5'));
+      expect(answer, isNot(contains("verify these moves against Stockfish's lines: Nc3")));
+    });
+
+    test('a user-named move alone does not trigger a warning or retry', () async {
+      final coach = coachReplying('There is no engine evidence about Nc3.');
+      final answer = await coach.followUp(
+        apiKey: 'fake-test-key',
+        model: 'model',
+        evidence: 'EVIDENCE',
+        firstAnswer: 'first',
+        previous: const [],
+        question: 'Why not Nc3?',
+        allowedMoves: {'Nf3'}.toISet(),
+      );
+      expect(calls, 1);
+      expect(answer, isNot(contains('Could not verify')));
+    });
+
+    test('rejects empty, oversize and unconfigured questions without a request', () {
+      final coach = coachReplying('never used');
+      Future<String> ask({String key = 'fake-test-key', String question = 'ok'}) => coach.followUp(
+        apiKey: key,
+        model: 'model',
+        evidence: 'E',
+        firstAnswer: 'a',
+        previous: const [],
+        question: question,
+      );
+      expect(ask(question: '   '), throwsA(isA<AiCoachException>()));
+      expect(
+        ask(question: 'x' * (kAiCoachMaxQuestionLength + 1)),
+        throwsA(isA<AiCoachException>()),
+      );
+      expect(ask(key: ''), throwsA(isA<AiCoachException>()));
+      expect(calls, 0);
+    });
+
+    test('stripAiCoachNote removes only the trailing app notes', () {
+      expect(stripAiCoachNote('Text.\n\n✓ Moves checked.'), 'Text.');
+      expect(stripAiCoachNote('Text.\n\n⚠ Could not verify: Qh5.'), 'Text.');
+      expect(stripAiCoachNote('Plain answer.'), 'Plain answer.');
+      expect(stripAiCoachNote('A ✓ inside.'), 'A ✓ inside.');
+    });
+  });
 }

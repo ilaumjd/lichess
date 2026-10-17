@@ -21,6 +21,11 @@ String normalizeAiCoachMove(String san) {
   return move;
 }
 
+/// The moves named in [text] (the same kinds of mention [checkAiCoachAnswer] checks).
+List<String> extractAiCoachMoves(String text) => [
+  for (final match in _moveMention.allMatches(text)) match.group(1)!,
+];
+
 /// Finds the moves named in [answer] that are not in [allowedMoves].
 AiCoachCheck checkAiCoachAnswer(String answer, Iterable<String> allowedMoves) {
   final allowed = allowedMoves.map(normalizeAiCoachMove).toSet();

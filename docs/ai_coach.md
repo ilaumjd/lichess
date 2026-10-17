@@ -50,6 +50,19 @@ in time. If the first one finds nothing the second is skipped, so a slow or cold
 most one short wait. Moves named in threat lines are allowed in answers, and the prompt tells the
 model to read them as hypothetical, never as moves that were played.
 
+## Follow-up questions
+
+Under an explanation there is a box to **ask a follow-up** and two quick buttons (**Explain
+simpler**, **What should I do differently?**). A follow-up sends the same position evidence, the
+first answer (without the app's verification note), up to the last 6 earlier follow-ups and the
+new question, so it needs no new engine run. Answers are limited to 120 words and checked like
+the first one. Moves you name in a question are accepted in the answer, because you introduced
+them, and the model is told to say it has no engine evidence about a move that was not analysed
+instead of judging it. One explanation takes up to 6 follow-ups, and questions are limited to
+500 characters. The whole conversation is saved with the explanation (same device-local history,
+no API key) and shown again when you reopen it or open it from history. Saving the same
+evidence again starts a fresh conversation. Entries saved before this feature still load.
+
 ## Explain a pasted position
 
 **More tab, AI coach**: paste a FEN, or a PGN (first game only; the coach explains its last move,
