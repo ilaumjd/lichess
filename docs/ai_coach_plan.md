@@ -8,6 +8,13 @@ The coach gets a FEN, the move list and Stockfish's top lines, then guesses *why
 good. That produces vague or wrong claims (invented threats, wrong piece names). It also
 explains only the current position, never the move the player actually made.
 
+## Decisions (from the owner)
+
+1. Main use: **explain a single move**. Game review is optional and comes last.
+2. **Follow-up questions matter**, so they move up right after the quality core.
+3. **No cost limit**, but the coach must never feel slow: answers should start quickly and
+   engine thinking is time-boxed (see Latency budget).
+
 ## Principle
 
 **The app computes facts; the AI only explains them.** Every claim in an answer should map to
@@ -51,7 +58,10 @@ true"). Keep it short (token cost) and deterministic.
   "could not verify" note instead of silently trusting it.
 - Add a footer: "Moves checked against Stockfish lines" only when the check passed.
 
-### Phase 4: Game review
+### Phase 3b: Follow-up questions (moved up, was Phase 6)
+See Phase 6 details. Build right after Phase 3 because the owner wants it.
+
+### Phase 4: Game review (lowest priority now)
 - After a finished game, find the 3 to 5 largest eval swings (verdict mistake or worse) for
   the user's side, plus the opening and result.
 - One request per key moment (Phase 2 shape), then a short summary request listing themes
@@ -75,6 +85,16 @@ true"). Keep it short (token cost) and deterministic.
 Start the engine on demand instead of requiring the analysis screen: game-over screen,
 review mode, pasted FEN/PGN, puzzles. Remains disabled where Lichess disallows engine help
 (live games). Needs its own small design: engine start, depth wait, cancel, battery use.
+
+## Latency budget (target: first useful text in about 5 seconds)
+- Reuse the analysis already running for the position when it exists; do not start a second one.
+- On-demand engine run is **time-boxed**: stop at about 3 seconds or depth 16, whichever
+  comes first, with a floor of depth 12. Use up to 3 lines (MultiPV 3); reduce if slow.
+- Show the engine verdict and best move **immediately**, while the AI explanation loads.
+- Stream the AI answer if the API allows it; otherwise show a clear "thinking" state.
+- Default to a fast model; a "deeper explanation" button can use a stronger one on request.
+- Hard timeout on the AI call (60 s today); allow cancel at every step.
+- Follow-ups reuse the stored position and facts, so they need no new engine run.
 
 ## Prompt design changes
 - Split the prompt into: role and level, **facts block**, **engine block**, **task block**.
@@ -106,14 +126,14 @@ review mode, pasted FEN/PGN, puzzles. Remains disabled where Lichess disallows e
 - **Model choice:** a stronger model may explain better but costs more; keep it configurable
   and test two models on the reference set.
 - **Engine strength on phone:** deeper analysis drains battery; keep depth bounded.
-- Open: main use case (single move vs full review), whether follow-ups matter, acceptable
-  cost per explanation, and which entry point to build first.
+- Open: which entry point to build first.
 
 ## Suggested order
 1. Phase 1 facts, Phase 2 move explanation, Phase 3 validation (quality core).
-2. Entry points (on-demand engine) so the coach is reachable without Analysis.
-3. Phase 4 game review.
-4. Phases 5 to 7 as wanted.
+2. Phase 3b follow-up questions.
+3. Entry points (on-demand engine, time-boxed) so the coach works without opening Analysis.
+4. Phase 5 levels and teaching style.
+5. Phase 4 game review and Phase 7 patterns, only if wanted later.
 
 ## AI assistance disclosure
 Plan written with OpenAI/Anthropic models via the pi coding agent. Human review required
