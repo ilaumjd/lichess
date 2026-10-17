@@ -30,7 +30,13 @@ void main() {
     await tester.pumpWidget(app);
     await tester.enterText(find.byType(TextField), kInitialFEN);
     await tester.tap(find.text('Analyse and explain'));
-    await tester.pumpAndSettle();
+    // The threat search gives up after a few seconds when the (fake) engine says nothing. The
+    // progress spinner animates forever, so pump until the screen is ready instead of settling.
+    var pumps = 0;
+    while (pumps < 300 && find.text('Position and engine evidence').evaluate().isEmpty) {
+      await tester.pump(const Duration(milliseconds: 100));
+      pumps++;
+    }
     // Analysed on the device (here from the fake cloud evaluation) and waiting for the user to
     // tap Explain: nothing has been sent anywhere.
     expect(find.text('Explain position'), findsOneWidget);

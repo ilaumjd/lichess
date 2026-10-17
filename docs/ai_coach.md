@@ -38,6 +38,18 @@ depth 12 or more, searches up to 4 seconds per missing position, then stops the 
 is sent to OpenAI until you tap **Explain**. A **Cancel** button stops the analysis, and **Try
 again** appears if Stockfish ran out of time. The position is captured when the screen opens.
 
+## Threats
+
+The app also asks Stockfish what the *other* side would do if it were their turn (the same idea
+as the analysis screen's "show threat" button). For a move it asks twice: what the opponent was
+threatening before the move, and what the move threatens afterwards; for a position it asks once.
+This is what lets the coach say "this leaves your bishop to be captured" or "this stops Black's
+idea". Threat searches stop at depth 10 or 3 seconds, are never run when the side to move is in
+check or the other side would be stalemated, and are simply left out when the engine has nothing
+in time. If the first one finds nothing the second is skipped, so a slow or cold engine costs at
+most one short wait. Moves named in threat lines are allowed in answers, and the prompt tells the
+model to read them as hypothetical, never as moves that were played.
+
 ## Explain a pasted position
 
 **More tab, AI coach**: paste a FEN, or a PGN (first game only; the coach explains its last move,

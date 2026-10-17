@@ -2,7 +2,7 @@
 
 Status: **phases 1 to 3 implemented** (facts, move explanation, answer checking). On-demand engine
 is implemented, with two entry points: the analysis menu and a paste-a-FEN/PGN screen in the
-More tab. Threat info, follow-ups and a game-over entry point are not started. No APK has been built from these changes. Builds on `docs/ai_coach.md` (current feature).
+More tab. Threat information is implemented too. Follow-ups and a game-over entry point are not started. No APK has been built from these changes. Builds on `docs/ai_coach.md` (current feature).
 
 ## Problem
 

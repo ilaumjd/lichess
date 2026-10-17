@@ -18,6 +18,10 @@ import 'package:lichess_mobile/src/model/engine/work.dart';
 /// reached well before this; the cap is for slow devices, so nobody waits for long.
 const kAiCoachSearchTime = Duration(seconds: 4);
 
+/// How long the coach lets the engine look for a threat. Threats are a bonus: when the engine has
+/// nothing by then, the coach goes without.
+const kAiCoachThreatTime = Duration(seconds: 3);
+
 /// Runs Stockfish on demand, for the coach only, and lets the engine go when it is done.
 ///
 /// Built on the same analyser the practice mode uses, so it also asks the server for a cloud
@@ -84,6 +88,62 @@ class AiCoachEngine(final Ref ref) {
     return eval;
   }
 
+  /// Evaluates what the side *not* to move threatens in [position] (the engine analyses the same
+  /// board as if it were their turn), or returns null if nothing deep enough came in time.
+  ///
+  /// Searches the evaluator directly rather than through the analyser, because the analyser keys
+  /// its results by position and a threat result must not replace the real one.
+  Future<ClientEval?> evaluateThreat(
+    Position position, {
+    Duration timeout = kAiCoachThreatTime,
+  }) async {
+    if (!canAiCoachShowThreat(position)) return null;
+    final context = EvaluationContext(
+      id: const StringId('ai-coach-threat'),
+      variant: Variant.standard,
+      initialPosition: position,
+    );
+    final subscription = ref.listen(positionEvaluatorProvider(context), (_, _) {});
+    final evaluator = ref.read(positionEvaluatorProvider(context).notifier);
+    final budget = ref.read(engineBudgetProvider);
+    final work = EvalWork(
+      id: context.id,
+      variant: Variant.standard,
+      threads: budget.offlineEvalThreads,
+      searchTime: timeout,
+      multiPv: 1,
+      threatMode: true,
+      initialPosition: position,
+      steps: const IListConst<Step>([]),
+    );
+
+    final done = Completer<ClientEval?>();
+    ClientEval? best;
+    final results = evaluator
+        .evaluate(work)
+        .listen(
+          (result) {
+            best = result.$2;
+            if (result.$2.depth >= kAiCoachThreatMinDepth && !done.isCompleted) done.complete(best);
+          },
+          onDone: () {
+            if (!done.isCompleted) done.complete(best);
+          },
+        );
+    final timer = Timer(timeout, () {
+      if (!done.isCompleted) done.complete(best);
+    });
+    try {
+      return await done.future;
+    } finally {
+      timer.cancel();
+      // Not awaited: letting go of the stream need not hold up the answer.
+      unawaited(results.cancel());
+      evaluator.stop();
+      subscription.close();
+    }
+  }
+
   /// Stops any search and lets the engine go.
   void cancel() => _analyser.yieldEngine();
 
@@ -120,6 +180,12 @@ Future<AiCoachRequest> prepareAiCoachRequest(
     final after = move.before.playUnchecked(move.played.move);
     final evalAfter = await evalFor(after, move.evalAfter);
     final evalBefore = await evalFor(move.before, move.evalBefore);
+    // Only worth a search once the move can be explained at all.
+    final canExplain = _usable(after, evalAfter) && _usable(move.before, evalBefore);
+    final threatBefore = canExplain ? await engine.evaluateThreat(move.before) : null;
+    // An engine that had nothing for the first threat will not have more for the second: skip it
+    // rather than make the user wait twice.
+    final threatAfter = threatBefore != null ? await engine.evaluateThreat(after) : null;
     try {
       return makeAiCoachMoveRequest(
         before: move.before,
@@ -128,11 +194,14 @@ Future<AiCoachRequest> prepareAiCoachRequest(
         evalAfter: evalAfter,
         movesBefore: move.movesBefore,
         opening: opening,
+        threatBefore: threatBefore,
+        threatAfter: threatAfter,
       );
     } on AiCoachException {
       // Fall through to the position.
     }
   }
   final eval = await evalFor(position, currentEval);
-  return makeAiCoachRequest(position, eval, moves, opening: opening);
+  final threat = _usable(position, eval) ? await engine.evaluateThreat(position) : null;
+  return makeAiCoachRequest(position, eval, moves, opening: opening, threat: threat);
 }

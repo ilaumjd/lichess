@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
+import 'package:lichess_mobile/src/model/engine/engine_utils.dart';
 
 void main() {
   const evaluation = CloudEval(
@@ -219,5 +220,57 @@ void main() {
     expect(calls, 1);
     expect(answer, isNot(contains('Moves checked')));
     expect(answer, isNot(contains('Could not verify')));
+  });
+
+  group('threat information', () {
+    // Start position with White to move: the threat position is the same board with Black to move.
+    final threatPosition = threatModePosition(Chess.initial);
+    CloudEval threatEval({
+      int depth = 12,
+      Position? at,
+      List<String> pv = const ['e7e5', 'g1f3'],
+    }) => CloudEval(
+      position: at ?? threatPosition,
+      depth: depth,
+      nodes: 100,
+      pvs: IList([PvData(moves: IList(pv), cp: -10)]),
+    );
+
+    test('is described as what the other side threatens, with its moves allowed', () {
+      final request = makeAiCoachRequest(Chess.initial, evaluation, '', threat: threatEval());
+      expect(request.evidence, contains('Threat: if it were Black to move instead'));
+      expect(request.evidence, contains('what Black is threatening'));
+      expect(request.evidence, contains('e5 Nf3'));
+      expect(request.allowedMoves, containsAll(['e5', 'Nf3']));
+    });
+
+    test('is left out when absent, too shallow, for another position, or impossible', () {
+      expect(makeAiCoachRequest(Chess.initial, evaluation, '').evidence, isNot(contains('Threat')));
+      for (final bad in [threatEval(depth: 5), threatEval(at: Chess.initial)]) {
+        expect(
+          makeAiCoachRequest(Chess.initial, evaluation, '', threat: bad).evidence,
+          isNot(contains('Threat')),
+        );
+      }
+    });
+
+    test('is never offered when the side to move is in check', () {
+      final inCheck = Chess.fromSetup(Setup.parseFen('4k3/8/8/8/8/8/4q3/4K3 w - - 0 1'));
+      expect(canAiCoachShowThreat(inCheck), isFalse);
+      expect(canAiCoachShowThreat(Chess.initial), isTrue);
+    });
+
+    test('is never offered when the other side would be stalemated', () {
+      // With Black to move this board is stalemate, so with White to move there is no threat to ask.
+      final position = Chess.fromSetup(Setup.parseFen('7k/5Q2/6K1/8/8/8/8/8 w - - 0 1'));
+      expect(position.isCheck, isFalse);
+      expect(threatModePosition(position).isStalemate, isTrue);
+      expect(canAiCoachShowThreat(position), isFalse);
+    });
+
+    test('the prompt tells the model how to read threat lines', () {
+      expect(aiCoachSystemPrompt, contains('Threat'));
+      expect(aiCoachSystemPrompt, contains('never as moves that were played'));
+    });
   });
 }

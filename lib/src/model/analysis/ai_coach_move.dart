@@ -34,6 +34,8 @@ AiCoachRequest makeAiCoachMoveRequest({
   required ClientEval? evalAfter,
   required String movesBefore,
   String? opening,
+  ClientEval? threatBefore,
+  ClientEval? threatAfter,
 }) {
   if (!before.isLegal(played.move)) {
     throw const AiCoachException('That move is not legal in the position before it.');
@@ -59,6 +61,21 @@ AiCoachRequest makeAiCoachMoveRequest({
       ? before.makeSan(bestMove).$2
       : bestUci;
 
+  final moverName = aiCoachSideName(before.turn);
+  final opponentName = aiCoachSideName(before.turn.opposite);
+  final threatOnBoard = describeThreat(
+    position: before,
+    evaluation: threatBefore,
+    ifItWere: opponentName,
+    meaning: 'what $opponentName was threatening before the move',
+  );
+  final threatCreated = describeThreat(
+    position: after,
+    evaluation: threatAfter,
+    ifItWere: moverName,
+    meaning: 'what $moverName threatens after the move',
+  );
+
   final factsBefore = makeAiCoachFacts(before);
   final factsAfter = makeAiCoachFacts(after, opening: opening);
 
@@ -77,6 +94,8 @@ AiCoachRequest makeAiCoachMoveRequest({
       '${beforeLines.text.join('\n')}\n'
       'Engine lines after the move (depth ${afterLines.depth}):\n'
       '${afterLines.text.join('\n')}\n'
+      '${threatOnBoard == null ? '' : '${threatOnBoard.text}\n'}'
+      '${threatCreated == null ? '' : '${threatCreated.text}\n'}'
       'Facts about the position before the move:\n'
       '${factsBefore.lines.map((l) => '- $l').join('\n')}\n'
       'Facts about the position after the move:\n'
@@ -90,6 +109,8 @@ AiCoachRequest makeAiCoachMoveRequest({
       ...afterLines.moves,
       ...factsBefore.moves,
       ...factsAfter.moves,
+      ...?threatOnBoard?.moves,
+      ...?threatCreated?.moves,
     }.toISet(),
   );
 }

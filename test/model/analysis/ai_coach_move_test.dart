@@ -5,6 +5,7 @@ import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
+import 'package:lichess_mobile/src/model/engine/engine_utils.dart';
 
 CloudEval eval(Position position, List<String> pv, {int cp = 0, int depth = 16}) => CloudEval(
   position: position,
@@ -83,5 +84,40 @@ void main() {
       ),
       throwsA(isA<AiCoachException>()),
     );
+  });
+
+  group('threats around the move', () {
+    CloudEval threat(Position position, String first) => CloudEval(
+      position: threatModePosition(position),
+      depth: 12,
+      nodes: 10,
+      pvs: IList([
+        PvData(moves: IList([first]), cp: 0),
+      ]),
+    );
+
+    test('are labelled for before and after the move, and their moves are allowed', () {
+      final after = afterMove('e2e4');
+      final replies = after.legalMoves.entries.first;
+      final reply = '${replies.key.name}${replies.value.squares.first.name}';
+      final r = makeAiCoachMoveRequest(
+        before: before,
+        played: SanMove('e4', Move.parse('e2e4')!),
+        evalBefore: eval(before, ['e2e4', 'e7e5']),
+        evalAfter: eval(after, [reply]),
+        movesBefore: '',
+        // Black's idea if White passed, and White's idea after e4 if Black passed.
+        threatBefore: threat(before, 'e7e5'),
+        threatAfter: threat(after, 'g1f3'),
+      );
+      expect(r.evidence, contains('what Black was threatening before the move'));
+      expect(r.evidence, contains('what White threatens after the move'));
+      expect(r.allowedMoves, contains('Nf3'));
+    });
+
+    test('are simply absent when none was found', () {
+      final r = request(played: 'e2e4', san: 'e4', cpBefore: 30, cpAfter: 28);
+      expect(r.evidence, isNot(contains('Threat:')));
+    });
   });
 }
