@@ -14,6 +14,7 @@ import 'package:lichess_mobile/src/tab_navigation.dart';
 import 'package:lichess_mobile/src/utils/l10n_context.dart';
 import 'package:lichess_mobile/src/view/account/account_menu.dart';
 import 'package:lichess_mobile/src/view/account/profile_screen.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_position_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_screen.dart';
 import 'package:lichess_mobile/src/view/board_editor/board_editor_screen.dart';
 import 'package:lichess_mobile/src/view/clock/clock_tool_screen.dart';
@@ -94,6 +95,17 @@ class const _Body() extends ConsumerWidget {
                     const AnalysisOptions.standalone(variant: Variant.standard),
                   ),
                 ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.school_outlined),
+                trailing: Theme.of(context).platform == TargetPlatform.iOS
+                    ? const CupertinoListTileChevron()
+                    : null,
+                title: const Text('AI coach'),
+                onTap: () => Navigator.of(
+                  context,
+                  rootNavigator: true,
+                ).push(AiCoachPositionScreen.buildRoute()),
               ),
               ListTile(
                 leading: const Icon(Icons.explore_outlined),

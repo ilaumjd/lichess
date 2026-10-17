@@ -38,6 +38,13 @@ depth 12 or more, searches up to 4 seconds per missing position, then stops the 
 is sent to OpenAI until you tap **Explain**. A **Cancel** button stops the analysis, and **Try
 again** appears if Stockfish ran out of time. The position is captured when the screen opens.
 
+## Explain a pasted position
+
+**More tab, AI coach**: paste a FEN, or a PGN (first game only; the coach explains its last move,
+so paste it up to the move you want). Standard chess only, up to 30,000 characters. The text is
+validated before anything runs (invalid FEN, illegal moves, variants and plain text are refused
+with a message), then Stockfish analyses it as above.
+
 ## Answer checking
 
 Moves named in an answer (piece moves, castling, pawn captures, promotions; plain pawn pushes

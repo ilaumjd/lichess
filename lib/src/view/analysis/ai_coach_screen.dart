@@ -38,7 +38,11 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
     super.initState();
     // Keeps the engine service alive for as long as the screen is.
     ref.listenManual(aiCoachEngineProvider, (_, _) {});
-    _prepare();
+    // Not from initState: starting the engine changes providers, which is not allowed while the
+    // widget tree is building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _prepare();
+    });
   }
 
   Future<void> _prepare() async {
