@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_history_screen.dart';
 import 'package:lichess_mobile/src/widgets/platform.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -96,6 +97,10 @@ class _AiCoachSettingsScreenState() extends ConsumerState<AiCoachSettingsScreen>
           'phone. Only when you tap Explain, the current FEN, move history and engine lines are '
           'sent directly to OpenAI. API usage is billed separately from ChatGPT subscriptions. '
           'AI explanations can be wrong. Never use them for assistance in live games.',
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).push(AiCoachHistoryScreen.buildRoute()),
+          child: const Text('Explanation history'),
         ),
         const SizedBox(height: 20),
         TextField(

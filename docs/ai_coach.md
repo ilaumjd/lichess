@@ -10,7 +10,8 @@ This optional feature is specific to `ilaumjd/lichess`. It is not an official Li
 3. Open a standard-chess position in Analysis and enable engine analysis.
 4. Wait for evaluation depth 12 or greater.
 5. Open the app bar **… → Explain position (AI)**.
-6. Inspect the evidence, then tap **Explain** to send the request.
+6. Inspect the evidence, then tap **Explain** to send the request (or reopen an exact saved match).
+7. Open **Explanation history** from the explanation screen or AI coach settings to revisit notes.
 
 The beginner prompt asks for an assessment, the purpose of an engine candidate,
 the opponent's reply in that line, and one simple lesson in everyday language.
@@ -33,8 +34,18 @@ Stockfish supplies the analysis; an LLM explains it and may be mistaken.
   using a separate HTTP client without Lichess authentication or request logging.
   OpenAI receives the position, engine lines, moves and the connection's IP address.
   Its API data policies apply; this is not offline/private engine analysis.
-- Successful answers are cached in memory (30 entries) by model and exact evidence.
-  Saving/removing settings clears the cache. Restarting the app loses the cache.
+- Successful answers are saved in device-local app preferences, newest first, with the date,
+  model and full position/engine evidence. The newest 100 entries are retained; older ones expire.
+  Saving the same evidence and model replaces that entry instead of duplicating it.
+- History survives app restarts and can be browsed offline without an API key. An exact saved
+  evidence/model match is reused before any API request. Different engine evidence or a different
+  model can create a new request. There is no cross-device sync; OS app backups may include notes.
+- Explanations are ordinary app data, not encrypted secret storage. The API key is never included.
+  Individual entries or all history can be deleted after confirmation. Removing the API key does
+  not delete study history. Clearing app data or uninstalling may remove history.
+- There is also a 30-entry memory cache. Saving/removing API settings and deleting history clear
+  the memory cache. Only successful responses are saved; storage failures leave the answer visible
+  with a warning. History writes are serialized to avoid losing simultaneous updates.
 - Errors do not display raw provider responses. There is no automatic retry or paid key test.
 
 ## Validation
@@ -51,8 +62,12 @@ flutter analyze lib/src/model/analysis/ai_coach.dart \
   lib/src/view/settings/ai_coach_settings_screen.dart \
   lib/src/view/settings/settings_screen.dart \
   test/model/analysis/ai_coach_test.dart \
+  test/model/analysis/ai_coach_history_test.dart \
+  lib/src/model/analysis/ai_coach_history.dart \
+  lib/src/view/analysis/ai_coach_history_screen.dart \
   test/view/analysis/ai_coach_screen_test.dart
 flutter test test/model/analysis/ai_coach_test.dart \
+  test/model/analysis/ai_coach_history_test.dart \
   test/view/analysis/ai_coach_screen_test.dart \
   test/view/analysis/analysis_screen_test.dart
 ```
