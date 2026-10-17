@@ -13,9 +13,30 @@ This optional feature is specific to `ilaumjd/lichess`. It is not an official Li
 6. Inspect the evidence, then tap **Explain** to send the request (or reopen an exact saved match).
 7. Open **Explanation history** from the explanation screen or AI coach settings to revisit notes.
 
-The beginner prompt asks for an assessment, the purpose of an engine candidate,
-the opponent's reply in that line, and one simple lesson in everyday language.
-Stockfish supplies the analysis; an LLM explains it and may be mistaken.
+## What the coach is given
+
+The app computes facts itself (`ai_coach_facts.dart`) and passes them with Stockfish's lines,
+so the AI explains them instead of guessing: material balance, check/mate/stalemate, pieces
+that are attacked and undefended or attacked by a cheaper piece (pins are ignored), captures
+and checks available to the side to move, castling and king state, and the opening name.
+
+When a move is displayed and the engine has analysed both the position before it and after it
+(depth 12 or more), the menu says **Explain this move (AI)** and the request contains the move
+played, a verdict (good move, not best, inaccuracy, mistake, blunder; same thresholds as the
+app's practice mode), the engine's first choice, lines before and after, and facts for both
+positions. Otherwise it explains the position (**Explain position (AI)**).
+
+The prompt asks for a fixed structure: Verdict, Why, Idea, Lesson, at most 170 words, in plain
+language for a beginner. Stockfish supplies the analysis; an LLM explains it and may be mistaken.
+
+## Answer checking
+
+Moves named in an answer (piece moves, castling, pawn captures, promotions; plain pawn pushes
+are not checked because they look like squares) are compared with the moves the app supplied.
+On a mismatch the app retries once, telling the model which moves are allowed. If it still
+fails, the answer is shown with a visible warning; if it passes and names moves, it carries
+"Moves checked against Stockfish's lines". This catches illegal or invented moves. It does not
+prove the *reasoning* is right.
 
 ## Boundaries
 

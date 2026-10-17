@@ -560,6 +560,30 @@ class AnalysisController(final AnalysisOptions options)
       .map((branch) => branch.sanMove.san)
       .join(' ');
 
+  /// The move that led to the displayed position, with the engine evaluations on both sides of
+  /// it, or `null` when the root position is displayed.
+  ({
+    Position before,
+    SanMove played,
+    ClientEval? evalBefore,
+    ClientEval? evalAfter,
+    String movesBefore,
+  })?
+  currentMoveContext() {
+    final path = state.requireValue.currentPath;
+    if (path.isEmpty) return null;
+    final node = _root.nodeAt(path);
+    if (node is! Branch) return null;
+    final parent = _root.parentAt(path);
+    return (
+      before: parent.position,
+      played: node.sanMove,
+      evalBefore: parent.eval,
+      evalAfter: node.eval,
+      movesBefore: _root.branchesOn(path.penultimate).map((b) => b.sanMove.san).join(' '),
+    );
+  }
+
   void addCurrentPathAsPremove() {
     state = AsyncData(
       state.requireValue.copyWith(

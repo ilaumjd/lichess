@@ -19,32 +19,36 @@ void main() {
   );
 
   test('captures legal SAN lines and explicitly labels White score perspective', () {
-    final evidence = makeAiCoachEvidence(Chess.initial, evaluation, '');
+    final request = makeAiCoachRequest(Chess.initial, evaluation, '');
+    final evidence = request.evidence;
     expect(evidence, contains(Chess.initial.fen));
     expect(evidence, contains('e4 e5 Nf3'));
-    expect(evidence, contains('centipawns 24'));
+    expect(evidence, contains('score +0.2'));
+    expect(evidence, contains('Facts computed by the app'));
+    expect(evidence, contains('Task: explain this position.'));
+    expect(request.allowedMoves, containsAll(['e4', 'e5', 'Nf3']));
     expect(evidence, contains("White's perspective"));
     expect(evidence, contains('Engine depth: 16'));
   });
 
   test('requires engine evidence', () {
-    expect(() => makeAiCoachEvidence(Chess.initial, null, ''), throwsA(isA<AiCoachException>()));
+    expect(() => makeAiCoachRequest(Chess.initial, null, ''), throwsA(isA<AiCoachException>()));
   });
 
   test('rejects shallow and stale evaluations', () {
     expect(
-      () => makeAiCoachEvidence(Chess.initial, evaluation.copyWith(depth: 8), ''),
+      () => makeAiCoachRequest(Chess.initial, evaluation.copyWith(depth: 8), ''),
       throwsA(isA<AiCoachException>()),
     );
     expect(
-      () => makeAiCoachEvidence(Chess.initial.play(Move.parse('e2e4')!), evaluation, 'e4'),
+      () => makeAiCoachRequest(Chess.initial.play(Move.parse('e2e4')!), evaluation, 'e4'),
       throwsA(isA<AiCoachException>()),
     );
   });
 
   test('rejects illegal engine moves', () {
     expect(
-      () => makeAiCoachEvidence(
+      () => makeAiCoachRequest(
         Chess.initial,
         evaluation.copyWith(
           pvs: const IListConst([
@@ -80,7 +84,7 @@ void main() {
     });
     addTearDown(client.close);
     final coach = AiCoach(client);
-    final evidence = makeAiCoachEvidence(Chess.initial, evaluation, '');
+    final evidence = makeAiCoachRequest(Chess.initial, evaluation, '').evidence;
     for (var i = 0; i < 2; i++) {
       expect(
         await coach.explain(apiKey: 'fake-test-key', model: 'gpt-4o-mini', evidence: evidence),
@@ -124,5 +128,96 @@ void main() {
       AiCoach(client).explain(apiKey: 'fake-test-key', model: 'model', evidence: 'position'),
       throwsA(isA<AiCoachException>()),
     );
+  });
+
+  test('retries once when the answer names a move that was not supplied, then verifies', () async {
+    var calls = 0;
+    final client = MockClient((request) async {
+      calls++;
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final messages = body['messages'] as List<dynamic>;
+      final text = calls == 1 ? 'Play Qh5 to attack right away.' : 'Play Nf3 to develop a knight.';
+      if (calls == 2) {
+        expect(messages.length, 4);
+        expect(jsonEncode(messages.last), contains('Qh5'));
+      }
+      return http.Response(
+        jsonEncode({
+          'choices': [
+            {
+              'message': {'content': text},
+            },
+          ],
+        }),
+        200,
+      );
+    });
+    addTearDown(client.close);
+    final request = makeAiCoachRequest(Chess.initial, evaluation, '');
+    final answer = await AiCoach(client).explain(
+      apiKey: 'fake-test-key',
+      model: 'model',
+      evidence: request.evidence,
+      allowedMoves: request.allowedMoves,
+    );
+    expect(calls, 2);
+    expect(answer, contains('Play Nf3'));
+    expect(answer, contains('Moves checked against'));
+  });
+
+  test('warns visibly when moves still cannot be verified after one retry', () async {
+    var calls = 0;
+    final client = MockClient((request) async {
+      calls++;
+      return http.Response(
+        jsonEncode({
+          'choices': [
+            {
+              'message': {'content': 'Play Qh5 now.'},
+            },
+          ],
+        }),
+        200,
+      );
+    });
+    addTearDown(client.close);
+    final request = makeAiCoachRequest(Chess.initial, evaluation, '');
+    final answer = await AiCoach(client).explain(
+      apiKey: 'fake-test-key',
+      model: 'model',
+      evidence: request.evidence,
+      allowedMoves: request.allowedMoves,
+    );
+    expect(calls, 2);
+    expect(answer, contains('Could not verify'));
+    expect(answer, contains('Qh5'));
+  });
+
+  test('answers without move names get no verification footer and no retry', () async {
+    var calls = 0;
+    final client = MockClient((request) async {
+      calls++;
+      return http.Response(
+        jsonEncode({
+          'choices': [
+            {
+              'message': {'content': 'Develop your pieces and keep the king safe.'},
+            },
+          ],
+        }),
+        200,
+      );
+    });
+    addTearDown(client.close);
+    final request = makeAiCoachRequest(Chess.initial, evaluation, '');
+    final answer = await AiCoach(client).explain(
+      apiKey: 'fake-test-key',
+      model: 'model',
+      evidence: request.evidence,
+      allowedMoves: request.allowedMoves,
+    );
+    expect(calls, 1);
+    expect(answer, isNot(contains('Moves checked')));
+    expect(answer, isNot(contains('Could not verify')));
   });
 }

@@ -1,6 +1,7 @@
 # AI coach improvement plan
 
-Status: **plan only**. No code, no build. Builds on `docs/ai_coach.md` (current feature).
+Status: **phases 1 to 3 implemented** (facts, move explanation, answer checking). Phase 3b
+(follow-ups) and the entry points are not started. No APK has been built from these changes. Builds on `docs/ai_coach.md` (current feature).
 
 ## Problem
 

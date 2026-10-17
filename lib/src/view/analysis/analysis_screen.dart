@@ -2,6 +2,7 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_controller.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_preferences.dart';
 import 'package:lichess_mobile/src/model/auth/auth_controller.dart';
@@ -569,23 +570,43 @@ class const _AnalysisMenu({required final AnalysisOptions options}) extends Cons
         if (analysisState.isComputerAnalysisAllowed && analysisState.variant == Variant.standard)
           ContextMenuAction(
             icon: Icons.school_outlined,
-            label: 'Explain position (AI)',
+            label: analysisState.currentNode.sanMove != null
+                ? 'Explain this move (AI)'
+                : 'Explain position (AI)',
             onPressed: () {
+              final controller = ref.read(analysisControllerProvider(options).notifier);
               final current = ref.read(analysisControllerProvider(options)).requireValue;
               if (!current.isComputerAnalysisAllowed || current.variant != Variant.standard) return;
               try {
                 if (current.engineInThreatMode) {
                   throw const AiCoachException('Turn off threat mode before asking the AI coach.');
                 }
-                final moves = ref
-                    .read(analysisControllerProvider(options).notifier)
-                    .currentLineSan();
-                final evidence = makeAiCoachEvidence(
+                final opening = current.currentNode.opening?.name;
+                final moveContext = controller.currentMoveContext();
+                AiCoachRequest? request;
+                if (moveContext != null) {
+                  // Prefer explaining the move; fall back to the position when the engine has not
+                  // analysed the position before it.
+                  try {
+                    request = makeAiCoachMoveRequest(
+                      before: moveContext.before,
+                      played: moveContext.played,
+                      evalBefore: moveContext.evalBefore,
+                      evalAfter: moveContext.evalAfter,
+                      movesBefore: moveContext.movesBefore,
+                      opening: opening,
+                    );
+                  } on AiCoachException {
+                    request = null;
+                  }
+                }
+                request ??= makeAiCoachRequest(
                   current.currentPosition,
                   current.currentNode.eval,
-                  moves,
+                  controller.currentLineSan(),
+                  opening: opening,
                 );
-                Navigator.of(context).push(AiCoachScreen.buildRoute(evidence: evidence));
+                Navigator.of(context).push(AiCoachScreen.buildRoute(request: request));
               } on AiCoachException catch (error) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
               }

@@ -9,10 +9,10 @@ import 'package:lichess_mobile/src/widgets/platform.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Immutable evidence avoids explaining a different position if the board changes mid-request.
-class const AiCoachScreen({required final String evidence, super.key})
+class const AiCoachScreen({required final AiCoachRequest request, super.key})
     extends ConsumerStatefulWidget {
-  static Route<void> buildRoute({required String evidence}) =>
-      buildScreenRoute(screen: AiCoachScreen(evidence: evidence));
+  static Route<void> buildRoute({required AiCoachRequest request}) =>
+      buildScreenRoute(screen: AiCoachScreen(request: request));
 
   @override
   ConsumerState<AiCoachScreen> createState() => _AiCoachScreenState();
@@ -33,7 +33,7 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
           await SecureStorage.instance.read(key: aiCoachModelStorage) ?? aiCoachDefaultModel;
       if (!mounted) return;
       final history = ref.read(aiCoachHistoryProvider.notifier);
-      final saved = history.find(model: model, evidence: widget.evidence);
+      final saved = history.find(model: model, evidence: widget.request.evidence);
       if (saved != null) {
         setState(() {
           _answer = saved;
@@ -44,10 +44,15 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
       final key = await SecureStorage.instance.read(key: aiCoachKeyStorage) ?? '';
       if (!mounted) return;
       final coach = ref.read(aiCoachProvider);
-      final answer = await coach.explain(apiKey: key, model: model, evidence: widget.evidence);
+      final answer = await coach.explain(
+        apiKey: key,
+        model: model,
+        evidence: widget.request.evidence,
+        allowedMoves: widget.request.allowedMoves,
+      );
       String? saveError;
       try {
-        await history.save(model: model, evidence: widget.evidence, explanation: answer);
+        await history.save(model: model, evidence: widget.request.evidence, explanation: answer);
       } on Object {
         saveError = 'Explanation received, but it could not be saved on this device.';
       }
@@ -87,7 +92,10 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
         ExpansionTile(
           title: const Text('Position and engine evidence'),
           children: [
-            Padding(padding: const EdgeInsets.all(12), child: SelectableText(widget.evidence)),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SelectableText(widget.request.evidence),
+            ),
           ],
         ),
         TextButton(

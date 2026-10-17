@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dartchess/dartchess.dart';
+import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
@@ -27,7 +28,7 @@ void main() {
   testWidgets('reuses persistent explanation without needing an API key', (tester) async {
     final app = await makeTestProviderScopeApp(
       tester,
-      home: const AiCoachScreen(evidence: 'FEN: saved position'),
+      home: AiCoachScreen(request: (evidence: 'FEN: saved position', allowedMoves: ISet<String>())),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
     );
     await tester.pumpWidget(app);
@@ -41,7 +42,7 @@ void main() {
   testWidgets('history opens saved notes and asks before clearing', (tester) async {
     final app = await makeTestProviderScopeApp(
       tester,
-      home: const AiCoachScreen(evidence: 'FEN: saved position'),
+      home: AiCoachScreen(request: (evidence: 'FEN: saved position', allowedMoves: ISet<String>())),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
     );
     await tester.pumpWidget(app);
@@ -64,6 +65,28 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     expect(find.text('No saved explanations yet.'), findsOneWidget);
+  });
+
+  testWidgets('menu offers to explain the move when a move is displayed', (tester) async {
+    final app = await makeTestProviderScopeApp(
+      tester,
+      home: const AnalysisScreen(
+        options: AnalysisOptions.pgn(
+          id: StringId('ai-coach-move-test'),
+          pgn: '1. e4 e5',
+          isComputerAnalysisAllowed: true,
+          orientation: Side.white,
+          variant: Variant.standard,
+          initialMoveCursor: 2,
+        ),
+      ),
+    );
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await tester.pumpAndSettle();
+    expect(find.text('Explain this move (AI)'), findsOneWidget);
+    expect(find.text('Explain position (AI)'), findsNothing);
   });
 
   for (final allowed in [false, true]) {
@@ -93,7 +116,9 @@ void main() {
   ) async {
     final app = await makeTestProviderScopeApp(
       tester,
-      home: const AiCoachScreen(evidence: 'FEN: example position'),
+      home: AiCoachScreen(
+        request: (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
+      ),
     );
     await tester.pumpWidget(app);
     await tester.pumpAndSettle();
@@ -108,7 +133,9 @@ void main() {
   testWidgets('missing API key gives settings guidance', (tester) async {
     final app = await makeTestProviderScopeApp(
       tester,
-      home: const AiCoachScreen(evidence: 'FEN: example position'),
+      home: AiCoachScreen(
+        request: (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
+      ),
     );
     await tester.pumpWidget(app);
     await tester.pumpAndSettle();
