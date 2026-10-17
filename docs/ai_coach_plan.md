@@ -1,7 +1,8 @@
 # AI coach improvement plan
 
-Status: **phases 1 to 3 implemented** (facts, move explanation, answer checking). Phase 3b
-(follow-ups) and the entry points are not started. No APK has been built from these changes. Builds on `docs/ai_coach.md` (current feature).
+Status: **phases 1 to 3 implemented** (facts, move explanation, answer checking). On-demand engine
+is implemented for the analysis menu. Follow-ups, threat info and the other entry points
+(game-over screen, pasted position) are not started. No APK has been built from these changes. Builds on `docs/ai_coach.md` (current feature).
 
 ## Problem
 

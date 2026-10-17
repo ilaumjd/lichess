@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:intl/intl.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_preferences.dart';
 import 'package:lichess_mobile/src/model/analysis/common_analysis_state.dart';
 import 'package:lichess_mobile/src/model/analysis/forecast.dart';
@@ -562,14 +563,7 @@ class AnalysisController(final AnalysisOptions options)
 
   /// The move that led to the displayed position, with the engine evaluations on both sides of
   /// it, or `null` when the root position is displayed.
-  ({
-    Position before,
-    SanMove played,
-    ClientEval? evalBefore,
-    ClientEval? evalAfter,
-    String movesBefore,
-  })?
-  currentMoveContext() {
+  AiCoachMoveContext? currentMoveContext() {
     final path = state.requireValue.currentPath;
     if (path.isEmpty) return null;
     final node = _root.nodeAt(path);

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dartchess/dartchess.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_controller.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
@@ -25,10 +27,52 @@ void main() {
     },
   ]);
 
+  testWidgets('shows progress while Stockfish analyses and offers Explain only afterwards', (
+    tester,
+  ) async {
+    final completer = Completer<AiCoachRequest>();
+    final app = await makeTestProviderScopeApp(
+      tester,
+      home: AiCoachScreen(prepare: (_) => completer.future),
+    );
+    await tester.pumpWidget(app);
+    await tester.pump();
+    expect(find.text('Analysing the position with Stockfish…'), findsOneWidget);
+    expect(find.text('Explain'), findsNothing);
+    completer.complete((evidence: 'FEN: later', allowedMoves: ISet<String>()));
+    await tester.pumpAndSettle();
+    expect(find.text('Analysing the position with Stockfish…'), findsNothing);
+    expect(find.text('Explain'), findsOneWidget);
+  });
+
+  testWidgets('shows the error and a retry when the analysis fails', (tester) async {
+    var calls = 0;
+    final app = await makeTestProviderScopeApp(
+      tester,
+      home: AiCoachScreen(
+        prepare: (_) async {
+          calls++;
+          if (calls == 1) throw const AiCoachException('Stockfish ran out of time.');
+          return (evidence: 'FEN: second try', allowedMoves: ISet<String>());
+        },
+      ),
+    );
+    await tester.pumpWidget(app);
+    await tester.pumpAndSettle();
+    expect(find.text('Stockfish ran out of time.'), findsOneWidget);
+    expect(find.text('Explain'), findsNothing);
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+    expect(find.text('Explain'), findsOneWidget);
+    expect(find.text('Stockfish ran out of time.'), findsNothing);
+  });
+
   testWidgets('reuses persistent explanation without needing an API key', (tester) async {
     final app = await makeTestProviderScopeApp(
       tester,
-      home: AiCoachScreen(request: (evidence: 'FEN: saved position', allowedMoves: ISet<String>())),
+      home: AiCoachScreen(
+        prepare: (_) async => (evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
+      ),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
     );
     await tester.pumpWidget(app);
@@ -42,7 +86,9 @@ void main() {
   testWidgets('history opens saved notes and asks before clearing', (tester) async {
     final app = await makeTestProviderScopeApp(
       tester,
-      home: AiCoachScreen(request: (evidence: 'FEN: saved position', allowedMoves: ISet<String>())),
+      home: AiCoachScreen(
+        prepare: (_) async => (evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
+      ),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
     );
     await tester.pumpWidget(app);
@@ -117,7 +163,7 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        request: (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
+        prepare: (_) async => (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
       ),
     );
     await tester.pumpWidget(app);
@@ -134,7 +180,7 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        request: (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
+        prepare: (_) async => (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
       ),
     );
     await tester.pumpWidget(app);

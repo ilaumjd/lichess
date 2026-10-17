@@ -49,7 +49,7 @@ AiCoachLines describeEngineLines(Position position, ClientEval? evaluation) {
       evaluation.depth < kAiCoachMinDepth ||
       evaluation.pvs.isEmpty) {
     throw const AiCoachException(
-      'Enable engine analysis and wait for depth $kAiCoachMinDepth, then try again.',
+      'Stockfish could not analyse this position deeply enough in time. Please try again.',
     );
   }
   final text = <String>[];

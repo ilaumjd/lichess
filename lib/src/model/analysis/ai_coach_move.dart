@@ -6,6 +6,15 @@ import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/engine/practice_comment.dart';
 
+/// The move that led to a displayed position, with the engine evaluations on both sides of it.
+typedef AiCoachMoveContext = ({
+  Position before,
+  SanMove played,
+  ClientEval? evalBefore,
+  ClientEval? evalAfter,
+  String movesBefore,
+});
+
 String _verdictText(MoveVerdict verdict) => switch (verdict) {
   .goodMove => 'good move',
   .notBest => 'not the best move, but the position stays winning',

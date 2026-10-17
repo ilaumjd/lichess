@@ -29,6 +29,15 @@ positions. Otherwise it explains the position (**Explain position (AI)**).
 The prompt asks for a fixed structure: Verdict, Why, Idea, Lesson, at most 170 words, in plain
 language for a beginner. Stockfish supplies the analysis; an LLM explains it and may be mistaken.
 
+## Engine on demand
+
+The coach no longer needs the analysis engine to be on. Opening **Explain this move / position**
+shows a screen that first asks Stockfish, on the device, for any missing evaluation (the analyser
+also tries a cloud evaluation or tablebase result first): it reuses evaluations that are already
+depth 12 or more, searches up to 4 seconds per missing position, then stops the engine. Nothing
+is sent to OpenAI until you tap **Explain**. A **Cancel** button stops the analysis, and **Try
+again** appears if Stockfish ran out of time. The position is captured when the screen opens.
+
 ## Answer checking
 
 Moves named in an answer (piece moves, castling, pawn captures, promotions; plain pawn pushes
