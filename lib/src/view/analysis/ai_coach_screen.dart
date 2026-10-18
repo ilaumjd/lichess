@@ -5,6 +5,7 @@ import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_alternative.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_input.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_history_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
@@ -13,6 +14,30 @@ import 'package:material_ui/material_ui.dart';
 
 /// Builds the request to explain, running Stockfish on demand where an evaluation is missing.
 typedef AiCoachPrepare = Future<AiCoachRequest> Function(AiCoachEngine engine);
+
+/// Prepares the request for a parsed FEN or game: the last move when there is one, else the
+/// position. Stockfish runs on demand for whatever has no evaluation yet.
+AiCoachPrepare aiCoachPrepareFor(AiCoachInput input) =>
+    (engine) => prepareAiCoachRequest(
+      engine,
+      position: input.position,
+      currentEval: null,
+      moves: input.moves,
+      move: input.lastMove,
+    );
+
+/// Opens the coach on the last move of the game in [pgn] (standard chess only), for the result
+/// dialogs. Shows a message instead when the game cannot be read.
+void openAiCoachForPgn(BuildContext context, String pgn) {
+  final AiCoachInput input;
+  try {
+    input = parseAiCoachInput(pgn);
+  } on AiCoachException catch (error) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    return;
+  }
+  Navigator.of(context).push(AiCoachScreen.buildRoute(prepare: aiCoachPrepareFor(input)));
+}
 
 /// Explains a position or move.
 ///

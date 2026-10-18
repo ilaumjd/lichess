@@ -5,8 +5,11 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override, ProviderOrFamily;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
+import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/common/id.dart';
 import 'package:lichess_mobile/src/model/common/perf.dart';
 import 'package:lichess_mobile/src/model/common/speed.dart';
@@ -82,6 +85,33 @@ void main() {
       expect(tester.widget<Chessboard>(find.byType(Chessboard)).orientation, Side.black);
 
       expect(activeClock(tester), null);
+    });
+
+    testWidgets('AI coach button on the result dialog explains the mating move', (tester) async {
+      await initOverTheBoardGame(
+        tester,
+        const TimeIncrement(60, 5),
+        overrides: {aiCoachEngineProvider: aiCoachEngineProvider.overrideWith(_InstantEngine.new)},
+      );
+      await playMove(tester, 'e2', 'e4');
+      await playMove(tester, 'f7', 'f6');
+      await playMove(tester, 'd2', 'd4');
+      await playMove(tester, 'g7', 'g5');
+      await playMove(tester, 'd1', 'h5');
+      await tester.pumpAndSettle(const Duration(milliseconds: 600));
+      expect(find.text('Checkmate • White is victorious'), findsOneWidget);
+
+      await tester.tap(find.text('AI coach'));
+      var pumps = 0;
+      while (pumps < 300 && find.text('Position and engine evidence').evaluate().isEmpty) {
+        await tester.pump(const Duration(milliseconds: 100));
+        pumps++;
+      }
+      expect(find.text('Explain position'), findsOneWidget);
+      await tester.tap(find.text('Position and engine evidence'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Move played: Qh5#'), findsOneWidget);
+      expect(find.textContaining('This move gives checkmate'), findsOneWidget);
     });
 
     testWidgets('Clock stops after checkmate when dismissing the result dialog', (tester) async {
@@ -794,7 +824,28 @@ void main() {
   });
 }
 
-Future<Rect> initOverTheBoardGame(WidgetTester tester, TimeIncrement timeIncrement) async {
+/// An engine service that answers instantly with a legal line, so the coach screen can be opened
+/// from the result dialog without a real search.
+class _InstantEngine(super.ref) extends AiCoachEngine {
+  @override
+  Future<ClientEval?> evaluate(Position position, {Duration timeout = kAiCoachSearchTime}) async {
+    final first = position.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
+    return CloudEval(
+      position: position,
+      depth: 16,
+      nodes: 1,
+      pvs: IList([
+        PvData(moves: IList(['${first.key.name}${first.value.squares.first.name}']), cp: 0),
+      ]),
+    );
+  }
+}
+
+Future<Rect> initOverTheBoardGame(
+  WidgetTester tester,
+  TimeIncrement timeIncrement, {
+  Map<ProviderOrFamily, Override>? overrides,
+}) async {
   final gameStorage = MockOverTheBoardGameStorage();
 
   when(() => gameStorage.fetchOngoingGame()).thenAnswer((_) async => null);
@@ -814,6 +865,7 @@ Future<Rect> initOverTheBoardGame(WidgetTester tester, TimeIncrement timeIncreme
       overTheBoardGameStorageProvider: overTheBoardGameStorageProvider.overrideWith(
         (_) => gameStorage,
       ),
+      ...?overrides,
     },
   );
   await tester.pumpWidget(app);

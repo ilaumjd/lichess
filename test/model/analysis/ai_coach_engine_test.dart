@@ -327,4 +327,48 @@ void main() {
       expect(request.evidence, isNot(contains('Threat:')));
     });
   });
+
+  group('prepareAiCoachRequest at the end of a game', () {
+    final mateBefore = Chess.fromSetup(
+      Setup.parseFen('rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2'),
+    );
+    final qh4 = Move.parse('d8h4')!;
+    final mated = mateBefore.play(qh4);
+
+    test('explains the mating move without asking the engine about the final position', () async {
+      final c = await makeContainer();
+      addTearDown(c.dispose);
+      final scripted = ScriptedEngine(c.read(_refProvider), (p) => cloud(p, ['d8h4'], cp: -9000));
+      final request = await prepareAiCoachRequest(
+        scripted,
+        position: mated,
+        currentEval: null,
+        moves: 'f3 e5 g4 Qh4#',
+        move: (
+          before: mateBefore,
+          played: SanMove('Qh4#', qh4),
+          evalBefore: null,
+          evalAfter: null,
+          movesBefore: 'f3 e5 g4',
+        ),
+      );
+      // Only the position before the move was evaluated; no threat search after the mate.
+      expect(scripted.asked, [mateBefore.fen]);
+      expect(scripted.threatsAsked, [mateBefore.fen]);
+      expect(request.evidence, contains('This move gives checkmate'));
+    });
+
+    test('explains the position after a game-ending move as an error, not a crash', () async {
+      final c = await makeContainer();
+      addTearDown(c.dispose);
+      final scripted = ScriptedEngine(c.read(_refProvider), (_) => null);
+      await expectLater(
+        prepareAiCoachRequest(scripted, position: mated, currentEval: null, moves: 'f3 e5 g4 Qh4#'),
+        throwsA(
+          isA<AiCoachException>().having((e) => e.message, 'message', contains('game is over')),
+        ),
+      );
+      expect(scripted.asked, isEmpty);
+    });
+  });
 }

@@ -5,6 +5,7 @@ import 'package:dartchess/dartchess.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/constants.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_controller.dart';
+import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/id.dart';
 import 'package:lichess_mobile/src/model/game/game.dart';
 import 'package:lichess_mobile/src/model/game/game_controller.dart';
@@ -14,6 +15,7 @@ import 'package:lichess_mobile/src/model/game/playable_game.dart';
 import 'package:lichess_mobile/src/model/tournament/tournament_controller.dart';
 import 'package:lichess_mobile/src/tab_navigation.dart';
 import 'package:lichess_mobile/src/utils/l10n_context.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_screen.dart';
 import 'package:lichess_mobile/src/view/game/status_l10n.dart';
 import 'package:lichess_mobile/src/view/tournament/tournament_screen.dart';
@@ -253,6 +255,11 @@ class _GameResultDialogState() extends ConsumerState<GameResultDialog> {
                 },
                 child: Text(context.l10n.analysis, textAlign: TextAlign.center),
               ),
+            if (value.game.userAnalysable && value.game.meta.variant == Variant.standard)
+              FilledButton.tonal(
+                onPressed: () => openAiCoachForPgn(context, value.game.makePgn()),
+                child: const Text('AI coach', textAlign: TextAlign.center),
+              ),
           ],
         ),
       ),
@@ -293,6 +300,11 @@ class const OverTheBoardGameResultDialog({
           },
           child: Text(context.l10n.analysis, textAlign: TextAlign.center),
         ),
+        if (game.meta.variant == Variant.standard)
+          FilledButton.tonal(
+            onPressed: () => openAiCoachForPgn(context, game.makePgn()),
+            child: const Text('AI coach', textAlign: TextAlign.center),
+          ),
       ],
     );
 

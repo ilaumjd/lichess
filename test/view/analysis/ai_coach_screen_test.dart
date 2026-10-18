@@ -26,7 +26,7 @@ import '../../test_provider_scope.dart';
 class FakeCoachEngine(super.ref) extends AiCoachEngine {
   @override
   Future<ClientEval?> evaluate(Position position, {Duration timeout = kAiCoachSearchTime}) async {
-    final first = position.legalMoves.entries.first;
+    final first = position.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
     return CloudEval(
       position: position,
       depth: 16,
@@ -547,6 +547,53 @@ void main() {
         await scrollTo(tester, find.text('Ask'));
         expect(find.text('Why not this move?'), findsNothing);
       });
+    });
+  });
+
+  group('opening the coach from a finished game', () {
+    Future<Widget> hostApp(WidgetTester tester, String pgn) => makeTestProviderScopeApp(
+      tester,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: FilledButton(
+              onPressed: () => openAiCoachForPgn(context, pgn),
+              child: const Text('Open coach'),
+            ),
+          ),
+        ),
+      ),
+      overrides: {aiCoachEngineProvider: aiCoachEngineProvider.overrideWith(FakeCoachEngine.new)},
+    );
+
+    testWidgets('a readable game opens the coach on its last move', (tester) async {
+      await tester.pumpWidget(await hostApp(tester, '1. f3 e5 2. g4 Qh4# 0-1'));
+      await tester.tap(find.text('Open coach'));
+      var pumps = 0;
+      while (pumps < 300 && find.text('Position and engine evidence').evaluate().isEmpty) {
+        await tester.pump(const Duration(milliseconds: 100));
+        pumps++;
+      }
+      expect(find.text('Explain position'), findsOneWidget);
+      await tester.tap(find.text('Position and engine evidence'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('This move gives checkmate'), findsOneWidget);
+      expect(find.textContaining('Move played: Qh4#'), findsOneWidget);
+    });
+
+    testWidgets('an unreadable game shows a message and does not open the coach', (tester) async {
+      await tester.pumpWidget(await hostApp(tester, '1. e4 e5 2. Ke4 *'));
+      await tester.tap(find.text('Open coach'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Illegal or unreadable move'), findsOneWidget);
+      expect(find.text('Explain position'), findsNothing);
+    });
+
+    testWidgets('a variant game is refused', (tester) async {
+      await tester.pumpWidget(await hostApp(tester, '[Variant "Atomic"]\n\n1. e4 e5 *'));
+      await tester.tap(find.text('Open coach'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('only explains standard chess'), findsOneWidget);
     });
   });
 }

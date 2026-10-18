@@ -178,14 +178,18 @@ Future<AiCoachRequest> prepareAiCoachRequest(
 
   if (move != null && move.before.isLegal(move.played.move)) {
     final after = move.before.playUnchecked(move.played.move);
-    final evalAfter = await evalFor(after, move.evalAfter);
+    // A move that ends the game has no position after it to evaluate.
+    final gameOver = after.isGameOver;
+    final evalAfter = gameOver ? null : await evalFor(after, move.evalAfter);
     final evalBefore = await evalFor(move.before, move.evalBefore);
     // Only worth a search once the move can be explained at all.
-    final canExplain = _usable(after, evalAfter) && _usable(move.before, evalBefore);
+    final canExplain = _usable(move.before, evalBefore) && (gameOver || _usable(after, evalAfter));
     final threatBefore = canExplain ? await engine.evaluateThreat(move.before) : null;
     // An engine that had nothing for the first threat will not have more for the second: skip it
     // rather than make the user wait twice.
-    final threatAfter = threatBefore != null ? await engine.evaluateThreat(after) : null;
+    final threatAfter = threatBefore != null && !gameOver
+        ? await engine.evaluateThreat(after)
+        : null;
     try {
       return makeAiCoachMoveRequest(
         before: move.before,
@@ -200,6 +204,12 @@ Future<AiCoachRequest> prepareAiCoachRequest(
     } on AiCoachException {
       // Fall through to the position.
     }
+  }
+  if (position.isGameOver) {
+    throw const AiCoachException(
+      'The game is over in this position, so there is nothing for Stockfish to analyse. '
+      'Explain the last move instead.',
+    );
   }
   final eval = await evalFor(position, currentEval);
   final threat = _usable(position, eval) ? await engine.evaluateThreat(position) : null;

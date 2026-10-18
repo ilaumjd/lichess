@@ -1,5 +1,4 @@
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
-import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_input.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
@@ -33,17 +32,7 @@ class _AiCoachPositionScreenState() extends State<AiCoachPositionScreen> {
       return;
     }
     setState(() => _error = null);
-    Navigator.of(context).push(
-      AiCoachScreen.buildRoute(
-        prepare: (engine) => prepareAiCoachRequest(
-          engine,
-          position: input.position,
-          currentEval: null,
-          moves: input.moves,
-          move: input.lastMove,
-        ),
-      ),
-    );
+    Navigator.of(context).push(AiCoachScreen.buildRoute(prepare: aiCoachPrepareFor(input)));
   }
 
   @override

@@ -63,6 +63,17 @@ instead of judging it. One explanation takes up to 6 follow-ups, and questions a
 no API key) and shown again when you reopen it or open it from history. Saving the same
 evidence again starts a fresh conversation. Entries saved before this feature still load.
 
+## From a finished game
+
+The result dialog of a finished game has an **AI coach** button next to **Analysis**, for online
+games, games against the computer and over-the-board games (standard chess only; hidden for
+variants). It opens the coach on the **last move of the game**: for a checkmate, why the mating
+move worked and what it replaced; for a resignation or a draw, the last move played. To ask
+about an earlier move, open **Analysis**, go to that move and use **Explain this move (AI)**.
+A move that ends the game (checkmate, stalemate, a draw) has nothing for Stockfish to evaluate
+afterwards, so the result is stated outright and only the position before the move is analysed.
+Asking for the position *after* a game-ending move gives a clear message instead of an error.
+
 ## Why not this move?
 
 Under the follow-up box there is a field for a move and a **Why not this move?** button. Type a

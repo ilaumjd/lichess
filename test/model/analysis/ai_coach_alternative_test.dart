@@ -116,7 +116,7 @@ void main() {
 
     // The reply line must be legal in whatever position the engine is asked about.
     ClientEval answer(Position position, {int cp = 0}) {
-      final first = position.legalMoves.entries.first;
+      final first = position.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
       final reply = '${first.key.name}${first.value.squares.first.name}';
       return cloud(position, [reply], cp: cp);
     }

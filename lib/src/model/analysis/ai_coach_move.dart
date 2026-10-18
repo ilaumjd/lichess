@@ -42,11 +42,21 @@ AiCoachRequest makeAiCoachMoveRequest({
   }
   final after = before.playUnchecked(played.move);
   final beforeLines = describeEngineLines(before, evalBefore);
-  final afterLines = describeEngineLines(after, evalAfter);
+  // A move that ends the game (checkmate, stalemate, a draw) leaves nothing for the engine to
+  // evaluate afterwards; the result is known.
+  final gameOver = after.isGameOver;
+  final afterLines = gameOver ? null : describeEngineLines(after, evalAfter);
 
   final mover = before.turn;
   final winningChancesBefore = evalBefore!.winningChances(mover);
-  final winningChancesAfter = evalAfter!.winningChances(mover);
+  final winningChancesAfter = gameOver
+      ? (after.isCheckmate ? 1.0 : 0.0)
+      : evalAfter!.winningChances(mover);
+  final evalAfterText = !gameOver
+      ? evalAfter!.evalString
+      : after.isCheckmate
+      ? 'checkmate'
+      : 'draw';
   final bestUci = evalBefore.pvs.first.moves.first;
   final playedIsBest = bestUci == played.move.uci;
   final verdict = MoveVerdict.fromShift(
@@ -88,12 +98,11 @@ AiCoachRequest makeAiCoachMoveRequest({
       'Verdict (computed by the app from the change in evaluation): ${aiCoachVerdictText(verdict)}\n'
       '$aiCoachScoreNote\n'
       'Evaluation before the move (best line): ${evalBefore.evalString}; '
-      'after the move played: ${evalAfter.evalString}\n'
+      'after the move played: $evalAfterText\n'
       "The engine's first choice was ${playedIsBest ? 'the move played' : bestSan}.\n"
       'Engine lines before the move (depth ${beforeLines.depth}):\n'
       '${beforeLines.text.join('\n')}\n'
-      'Engine lines after the move (depth ${afterLines.depth}):\n'
-      '${afterLines.text.join('\n')}\n'
+      '${afterLines == null ? '${after.isCheckmate ? 'This move gives checkmate, so the game ends and ${aiCoachSideName(mover)} wins.' : 'This move ends the game in a draw.'}\n' : 'Engine lines after the move (depth ${afterLines.depth}):\n${afterLines.text.join('\n')}\n'}'
       '${threatOnBoard == null ? '' : '${threatOnBoard.text}\n'}'
       '${threatCreated == null ? '' : '${threatCreated.text}\n'}'
       'Facts about the position before the move:\n'
@@ -107,7 +116,7 @@ AiCoachRequest makeAiCoachMoveRequest({
     allowedMoves: {
       played.san,
       ...beforeLines.moves,
-      ...afterLines.moves,
+      ...?afterLines?.moves,
       ...factsBefore.moves,
       ...factsAfter.moves,
       ...?threatOnBoard?.moves,

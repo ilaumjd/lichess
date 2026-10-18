@@ -28,7 +28,7 @@ void main() {
   }) {
     final after = afterMove(played);
     // Reply lines are legal for the position after the move played.
-    final replies = after.legalMoves.entries.first;
+    final replies = after.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
     final reply = '${replies.key.name}${replies.value.squares.first.name}';
     return makeAiCoachMoveRequest(
       before: before,
@@ -98,7 +98,7 @@ void main() {
 
     test('are labelled for before and after the move, and their moves are allowed', () {
       final after = afterMove('e2e4');
-      final replies = after.legalMoves.entries.first;
+      final replies = after.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
       final reply = '${replies.key.name}${replies.value.squares.first.name}';
       final r = makeAiCoachMoveRequest(
         before: before,
@@ -126,5 +126,59 @@ void main() {
     expect(r.decision, isNotNull);
     // The position before the move, not after it.
     expect(r.decision!.position.fen, before.fen);
+  });
+
+  group('a move that ends the game', () {
+    // Fool's mate: Black to play Qh4#, after which there is nothing left to evaluate.
+    final mateBefore = Chess.fromSetup(
+      Setup.parseFen('rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2'),
+    );
+    final qh4 = Move.parse('d8h4')!;
+
+    AiCoachRequest mate() => makeAiCoachMoveRequest(
+      before: mateBefore,
+      played: SanMove('Qh4#', qh4),
+      evalBefore: eval(mateBefore, ['d8h4'], cp: -9000),
+      evalAfter: null,
+      movesBefore: 'f3 e5 g4',
+    );
+
+    test('needs no evaluation after the move, and says the game ends', () {
+      final r = mate();
+      expect(r.evidence, contains('This move gives checkmate, so the game ends and Black wins.'));
+      expect(r.evidence, contains('after the move played: checkmate'));
+      expect(r.evidence, isNot(contains('Engine lines after the move')));
+      expect(r.evidence, contains('good move'));
+      expect(r.allowedMoves, contains('Qh4#'));
+    });
+
+    test('a stalemating move is reported as a draw', () {
+      final before = Chess.fromSetup(Setup.parseFen('7k/5Q2/8/8/8/8/8/6K1 w - - 0 1'));
+      final qg6 = Move.parse('f7g6')!;
+      final r = makeAiCoachMoveRequest(
+        before: before,
+        played: SanMove('Qg6', qg6),
+        evalBefore: eval(before, ['f7g7'], cp: 9000),
+        evalAfter: null,
+        movesBefore: '',
+      );
+      expect(r.evidence, contains('This move ends the game in a draw.'));
+      expect(r.evidence, contains('after the move played: draw'));
+      // Throwing away a won game by stalemate is not a good move.
+      expect(r.evidence, isNot(contains('good move')));
+    });
+
+    test('a move that does not end the game still needs the evaluation after it', () {
+      expect(
+        () => makeAiCoachMoveRequest(
+          before: Chess.initial,
+          played: SanMove('e4', Move.parse('e2e4')!),
+          evalBefore: eval(Chess.initial, ['e2e4']),
+          evalAfter: null,
+          movesBefore: '',
+        ),
+        throwsA(isA<AiCoachException>()),
+      );
+    });
   });
 }
