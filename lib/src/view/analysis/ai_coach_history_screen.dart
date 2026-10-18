@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_boards.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_boards_view.dart';
 import 'package:lichess_mobile/src/widgets/platform.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -96,6 +98,10 @@ class const AiCoachHistoryDetailScreen({required final AiCoachHistoryEntry entry
       children: [
         Text('${entry.savedAt.toLocal().toString().split('.').first} · ${entry.model}'),
         const SizedBox(height: 16),
+        if (aiCoachBoardsFromEvidence(entry.evidence) case final boards?) ...[
+          AiCoachBoardsView(boards: boards),
+          const SizedBox(height: 16),
+        ],
         SelectableText(entry.explanation),
         const SizedBox(height: 16),
         for (final turn in entry.followUps) ...[

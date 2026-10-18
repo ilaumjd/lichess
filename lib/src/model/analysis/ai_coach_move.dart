@@ -160,6 +160,13 @@ AiCoachRequest makeAiCoachMoveRequest({
   return AiCoachRequest(
     evidence: evidence,
     decision: (position: before, eval: evalBefore),
+    boards: (
+      before: before,
+      position: after,
+      played: played.move,
+      best: bestMove,
+      orientation: before.turn,
+    ),
     allowedMoves: {
       played.san,
       ...beforeLines.moves,

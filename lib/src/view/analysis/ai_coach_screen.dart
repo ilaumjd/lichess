@@ -8,6 +8,7 @@ import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_input.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_boards_view.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_history_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
 import 'package:lichess_mobile/src/widgets/platform.dart';
@@ -332,6 +333,10 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
                 ),
               ],
             ),
+          if (request?.boards case final boards?) ...[
+            AiCoachBoardsView(boards: boards),
+            const SizedBox(height: 12),
+          ],
           if (request != null)
             ExpansionTile(
               title: const Text('Position and engine evidence'),

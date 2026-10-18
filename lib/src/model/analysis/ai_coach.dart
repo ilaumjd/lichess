@@ -23,11 +23,28 @@ final aiCoachProvider = Provider<AiCoach>((ref) {
 /// the best one.
 typedef AiCoachDecision = ({Position position, ClientEval eval});
 
+/// What to draw beside an explanation: for a move, the position before it and after it, with the
+/// move played and the engine's preferred one; for a position, the position and the engine's
+/// preferred move.
+typedef AiCoachBoards = ({
+  /// The position before the move played, or null when a position (not a move) is explained.
+  Position? before,
+
+  /// The position shown: after the move played, or the position explained.
+  Position position,
+  Move? played,
+  Move? best,
+
+  /// The side at the bottom: the side that moved, or the side to move.
+  Side orientation,
+});
+
 /// What is sent to the AI: the evidence text, and the moves the answer is allowed to name.
 class const AiCoachRequest({
   required final String evidence,
   required final ISet<String> allowedMoves,
   final AiCoachDecision? decision,
+  final AiCoachBoards? boards,
 });
 
 /// The engine must have searched at least this deep before the coach will use its result.
@@ -224,6 +241,13 @@ AiCoachRequest makeAiCoachRequest(
     evidence: evidence,
     allowedMoves: {...engine.moves, ...facts.moves, ...?threatInfo?.moves}.toISet(),
     decision: (position: position, eval: evaluation!),
+    boards: (
+      before: null,
+      position: position,
+      played: null,
+      best: Move.parse(evaluation.pvs.first.moves.first),
+      orientation: position.turn,
+    ),
   );
 }
 

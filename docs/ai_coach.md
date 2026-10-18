@@ -13,6 +13,21 @@ This optional feature is specific to `ilaumjd/lichess`. It is not an official Li
 6. Inspect the evidence, then tap **Explain** to send the request (or reopen an exact saved match).
 7. Open **Explanation history** from the explanation screen or AI coach settings to revisit notes.
 
+## Boards
+
+The coach screen draws the position above the explanation, in your own board and piece theme.
+For a **move**, two boards side by side: *before the move*, with a green arrow for the engine's
+preferred move and a red arrow for the move that was played (one green arrow when they are the
+same), and *after the move*, with the move highlighted. For a **position**, one board with the
+engine's preferred move. The boards are turned to the side that moved (or is to move) and shrink
+to fit the screen width, up to 360 px each. They show nothing while the position is still being
+analysed, and nothing for requests that have no single position to show (the game summary).
+
+Explanations saved earlier get their board too: **Explanation history** rebuilds it from the saved
+evidence (the position before the move, the move played and the engine's first choice), and
+shows no board when the evidence cannot be read. The text of the explanation is never turned into
+pictures: only positions the app computed are drawn.
+
 ## Coach level
 
 **Settings, AI coach, Coach level** chooses how much the coach assumes you know. It is saved on the

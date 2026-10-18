@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import 'package:lichess_mobile/src/model/analysis/analysis_controller.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/common/id.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_history_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
@@ -707,6 +709,113 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(calls, 1);
+    });
+  });
+
+  group('boards beside the explanation', () {
+    const start = Chess.initial;
+    final e4 = Move.parse('e2e4')!;
+
+    Future<Widget> screen(WidgetTester tester, AiCoachBoards? boards) => makeTestProviderScopeApp(
+      tester,
+      home: AiCoachScreen(
+        prepare: (_, _) async =>
+            AiCoachRequest(evidence: 'FEN: x', allowedMoves: ISet<String>(), boards: boards),
+      ),
+    );
+
+    testWidgets('a move explanation shows the position before and after the move', (tester) async {
+      await tester.pumpWidget(
+        await screen(tester, (
+          before: start,
+          position: start.play(e4),
+          played: e4,
+          best: Move.parse('d2d4'),
+          orientation: Side.white,
+        )),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(StaticChessboard), findsNWidgets(2));
+      expect(find.text('Before the move'), findsOneWidget);
+      expect(find.text('After the move'), findsOneWidget);
+    });
+
+    testWidgets('a position explanation shows one board', (tester) async {
+      await tester.pumpWidget(
+        await screen(tester, (
+          before: null,
+          position: start,
+          played: null,
+          best: Move.parse('g1f3'),
+          orientation: Side.white,
+        )),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(StaticChessboard), findsOneWidget);
+    });
+
+    testWidgets('no board is drawn when there is nothing to show, and nothing else changes', (
+      tester,
+    ) async {
+      await tester.pumpWidget(await screen(tester, null));
+      await tester.pumpAndSettle();
+      expect(find.byType(StaticChessboard), findsNothing);
+      expect(find.text('Explain'), findsOneWidget);
+    });
+
+    testWidgets('no board while the position is still being analysed', (tester) async {
+      final never = Completer<AiCoachRequest>();
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: AiCoachScreen(prepare: (_, _) => never.future),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(StaticChessboard), findsNothing);
+    });
+
+    testWidgets('a saved explanation shows its board in the history', (tester) async {
+      final history = jsonEncode([
+        {
+          'savedAt': '2026-10-17T00:00:00Z',
+          'model': aiCoachDefaultModel,
+          'evidence':
+              'Task: explain the move that was played, not only the position.\n'
+              'Coach level: Beginner\n'
+              'Position before the move (FEN): ${start.fen}\n'
+              'Side that moved: White\n'
+              'Move played: e4\n'
+              "The engine's first choice was d4.\n",
+          'explanation': 'A saved move explanation.',
+        },
+        {
+          'savedAt': '2026-10-16T00:00:00Z',
+          'model': aiCoachDefaultModel,
+          'evidence': 'FEN: not something a board can be built from',
+          'explanation': 'An old note.',
+        },
+      ]);
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: const AiCoachHistoryScreen(),
+          defaultPreferences: {aiCoachHistoryStorageKey: history},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('A saved move explanation.'));
+      await tester.pumpAndSettle();
+      expect(find.byType(StaticChessboard), findsNWidgets(2));
+      expect(find.text('A saved move explanation.'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('An old note.'));
+      await tester.pumpAndSettle();
+      expect(find.byType(StaticChessboard), findsNothing);
+      expect(find.text('An old note.'), findsOneWidget);
     });
   });
 }

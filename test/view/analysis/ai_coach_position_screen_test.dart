@@ -1,3 +1,4 @@
+import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_position_screen.dart';
@@ -33,15 +34,25 @@ void main() {
     // The threat search gives up after a few seconds when the (fake) engine says nothing. The
     // progress spinner animates forever, so pump until the screen is ready instead of settling.
     var pumps = 0;
-    while (pumps < 300 && find.text('Position and engine evidence').evaluate().isEmpty) {
+    // The board is the first thing drawn once the position has been analysed.
+    while (pumps < 300 && find.byType(StaticChessboard).evaluate().isEmpty) {
       await tester.pump(const Duration(milliseconds: 100));
       pumps++;
     }
+    await tester.pumpAndSettle();
     // Analysed on the device (here from the fake cloud evaluation) and waiting for the user to
     // tap Explain: nothing has been sent anywhere.
     expect(find.text('Explain position'), findsOneWidget);
+    expect(find.byType(StaticChessboard), findsOneWidget);
+    // The board pushes the rest further down the lazily built list.
+    await tester.scrollUntilVisible(
+      find.text('Position and engine evidence'),
+      300,
+      scrollable: find
+          .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+          .first,
+    );
     expect(find.text('Position and engine evidence'), findsOneWidget);
-    expect(find.text('Explain'), findsOneWidget);
   });
 
   testWidgets('clear button empties the field and the error', (tester) async {
