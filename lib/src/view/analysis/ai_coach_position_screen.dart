@@ -1,6 +1,8 @@
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_input.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_review.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_review_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/widgets/platform.dart';
 import 'package:material_ui/material_ui.dart';
@@ -33,6 +35,23 @@ class _AiCoachPositionScreenState() extends State<AiCoachPositionScreen> {
     }
     setState(() => _error = null);
     Navigator.of(context).push(AiCoachScreen.buildRoute(prepare: aiCoachPrepareFor(input)));
+  }
+
+  void _review() {
+    final AiCoachInput input;
+    try {
+      input = parseAiCoachInput(_controller.text);
+    } on AiCoachException catch (error) {
+      setState(() => _error = error.message);
+      return;
+    }
+    final problem = aiCoachReviewProblem(input);
+    if (problem != null) {
+      setState(() => _error = problem);
+      return;
+    }
+    setState(() => _error = null);
+    Navigator.of(context).push(AiCoachReviewScreen.buildRoute(input: input));
   }
 
   @override
@@ -68,6 +87,8 @@ class _AiCoachPositionScreenState() extends State<AiCoachPositionScreen> {
         ),
         const SizedBox(height: 16),
         FilledButton(onPressed: _open, child: const Text('Analyse and explain')),
+        const SizedBox(height: 8),
+        FilledButton.tonal(onPressed: _review, child: const Text('Review the whole game')),
       ],
     ),
   );

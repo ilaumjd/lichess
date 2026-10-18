@@ -87,6 +87,33 @@ instead of judging it. One explanation takes up to 6 follow-ups, and questions a
 no API key) and shown again when you reopen it or open it from history. Saving the same
 evidence again starts a fresh conversation. Entries saved before this feature still load.
 
+## Game review
+
+**Review game (AI)** on the result dialogs (online, against the computer and over the board), or
+**Review the whole game** on the paste screen (More tab, AI coach), reviews a whole game, for White,
+Black or both (your own side is preselected when the game knows it). Standard chess only, up to
+250 half-moves.
+
+1. **Scan, on your phone, nothing sent.** Stockfish looks at every position for about 1.5 seconds
+   (depth 8; a cloud evaluation is used when there is one), with a progress bar and **Cancel**.
+   Plan on roughly a second and a half per half-move: a 40-move game is about two minutes.
+2. **Key moments, still local.** The app judges every move with the practice-mode verdicts and lists
+   the worst inaccuracies, mistakes and blunders of the reviewed side (up to 5, shown in game
+   order; a move that merely was not the best one while a win stayed a win does not count). It
+   also counts good moves, inaccuracies, mistakes and blunders.
+3. **Explain, only when you tap.** The button says how many requests it makes: one per key moment
+   plus one summary (for a game without mistakes, just the summary). Each key moment gets the
+   normal move explanation at your coach level, built from the scan and searched further only
+   where it was too shallow (no threat searches, to save time). The summary then gets the
+   counts, the key moments with their explanations, and the move list, and asks for: Overall,
+   Pattern, Practise and Well done, in your level's voice, checked like every other answer
+   (only moves from the game may be named).
+
+Everything is saved in the explanation history, and an explanation already in the history is reused
+instead of asked again. If a request fails, the explanations already received are kept and the same
+button asks only for what is missing. Tapping a key moment opens the normal coach screen on that
+move, with the saved explanation, follow-ups and "Why not this move?".
+
 ## From a finished game
 
 The result dialog of a finished game has an **AI coach** button next to **Analysis**, for online

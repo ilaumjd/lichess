@@ -28,6 +28,7 @@ import 'package:lichess_mobile/src/utils/immersive_mode.dart';
 import 'package:lichess_mobile/src/utils/l10n_context.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
 import 'package:lichess_mobile/src/utils/screen.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_review_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_screen.dart';
 import 'package:lichess_mobile/src/view/game/status_l10n.dart';
@@ -1234,6 +1235,14 @@ class const OfflineComputerGameResultDialog({
               openAiCoachForPgn(context, game.makePgn());
             },
             child: const Text('AI coach'),
+          ),
+        if (game.meta.variant == Variant.standard)
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAiCoachReviewForPgn(context, game.makePgn(), side: game.playerSide);
+            },
+            child: const Text('Review game'),
           ),
         TextButton(onPressed: onNewGame, child: Text(context.l10n.mobileNewGame)),
       ],

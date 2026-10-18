@@ -3,7 +3,8 @@
 Status: **phases 1 to 3 and 3b implemented** (facts, move explanation, answer checking). On-demand engine
 is implemented, with two entry points: the analysis menu and a paste-a-FEN/PGN screen in the
 More tab. Threat information and follow-up questions are implemented too. "Why not this move?" and the game-over entry point (last move of a finished game) are
-implemented. Skill levels (beginner, club, advanced) are implemented too. A full game review is not. No APK has been built from these changes. Builds on `docs/ai_coach.md` (current feature).
+implemented. Skill levels (beginner, club, advanced) and the full game review are implemented too. Patterns
+over time across saved games (phase 7) is not. No APK has been built from these changes. Builds on `docs/ai_coach.md` (current feature).
 
 ## Problem
 

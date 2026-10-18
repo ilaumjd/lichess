@@ -246,6 +246,9 @@ class AiCoach(final http.Client client) {
     required String evidence,
     ISet<String>? allowedMoves,
     AiCoachLevel level = AiCoachLevel.beginner,
+
+    /// Instructions to use instead of the level's usual ones, for a different kind of answer.
+    String? system,
   }) async {
     if (apiKey.trim().isEmpty || model.trim().isEmpty) {
       throw const AiCoachException('Add your OpenAI API key and model in AI coach settings.');
@@ -255,7 +258,7 @@ class AiCoach(final http.Client client) {
     if (cached != null) return cached;
 
     final messages = <Map<String, String>>[
-      {'role': 'system', 'content': aiCoachSystemPromptFor(level)},
+      {'role': 'system', 'content': system ?? aiCoachSystemPromptFor(level)},
       {'role': 'user', 'content': evidence},
     ];
     final result = await checkedAnswer(

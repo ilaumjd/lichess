@@ -23,6 +23,10 @@ const kAiCoachSearchTime = Duration(seconds: 4);
 /// nothing by then, the coach goes without.
 const kAiCoachThreatTime = Duration(seconds: 3);
 
+/// A quick scan of a game looks at each position for this long, to this depth.
+const kAiCoachScanTime = Duration(milliseconds: 1500);
+const kAiCoachScanMinDepth = 8;
+
 /// Runs Stockfish on demand, for the coach only, and lets the engine go when it is done.
 ///
 /// Built on the same analyser the practice mode uses, so it also asks the server for a cloud
@@ -57,10 +61,27 @@ class AiCoachEngine(final Ref ref) {
     Position position, {
     Duration? timeout,
     AiCoachLevel level = AiCoachLevel.beginner,
+  }) => _search(
+    position,
+    searchTime: timeout ?? level.searchTime,
+    minDepth: level.minDepth,
+    multiPv: (budget) => level.multiPv(budget),
+  );
+
+  /// A fast, shallow evaluation of [position], for scanning a whole game: it stops at depth
+  /// [kAiCoachScanMinDepth] or after [timeout], and looks at the best line only. Good enough to
+  /// see where a game swung, not to explain why.
+  Future<ClientEval?> evaluateQuick(Position position, {Duration timeout = kAiCoachScanTime}) =>
+      _search(position, searchTime: timeout, minDepth: kAiCoachScanMinDepth, multiPv: (_) => 1);
+
+  Future<ClientEval?> _search(
+    Position position, {
+    required Duration searchTime,
+    required int minDepth,
+    required int Function(int deviceDefault) multiPv,
   }) async {
-    final searchTime = timeout ?? level.searchTime;
     final cached = _analyser.evalFor(position);
-    if (cached != null && cached.depth >= level.minDepth) return cached;
+    if (cached != null && cached.depth >= minDepth) return cached;
 
     final context = EvaluationContext(
       id: const StringId('ai-coach'),
@@ -83,17 +104,13 @@ class AiCoachEngine(final Ref ref) {
         variant: Variant.standard,
         threads: budget.offlineEvalThreads,
         searchTime: searchTime,
-        multiPv: level.multiPv(budget.offlineEvalMultiPv),
+        multiPv: multiPv(budget.offlineEvalMultiPv),
         threatMode: false,
         initialPosition: position,
         steps: const IListConst<Step>([]),
       ),
     );
-    final eval = await _analyser.usableEval(
-      position,
-      timeout: searchTime,
-      minDepth: level.minDepth,
-    );
+    final eval = await _analyser.usableEval(position, timeout: searchTime, minDepth: minDepth);
     // The search would otherwise run on to the practice target depth, using battery for nothing.
     _analyser.yieldEngine();
     return eval;
@@ -184,6 +201,9 @@ Future<AiCoachRequest> prepareAiCoachRequest(
   String? opening,
   AiCoachMoveContext? move,
   AiCoachLevel level = AiCoachLevel.beginner,
+
+  /// Whether to also search what each side threatens. A review skips it to save time.
+  bool withThreats = true,
 }) async {
   Future<ClientEval?> evalFor(Position at, ClientEval? existing) =>
       _usable(at, existing, level) ? Future.value(existing) : engine.evaluate(at, level: level);
@@ -197,7 +217,9 @@ Future<AiCoachRequest> prepareAiCoachRequest(
     // Only worth a search once the move can be explained at all.
     final canExplain =
         _usable(move.before, evalBefore, level) && (gameOver || _usable(after, evalAfter, level));
-    final threatBefore = canExplain ? await engine.evaluateThreat(move.before) : null;
+    final threatBefore = canExplain && withThreats
+        ? await engine.evaluateThreat(move.before)
+        : null;
     // An engine that had nothing for the first threat will not have more for the second: skip it
     // rather than make the user wait twice.
     final threatAfter = threatBefore != null && !gameOver
@@ -226,6 +248,8 @@ Future<AiCoachRequest> prepareAiCoachRequest(
     );
   }
   final eval = await evalFor(position, currentEval);
-  final threat = _usable(position, eval, level) ? await engine.evaluateThreat(position) : null;
+  final threat = withThreats && _usable(position, eval, level)
+      ? await engine.evaluateThreat(position)
+      : null;
   return makeAiCoachRequest(position, eval, moves, opening: opening, threat: threat, level: level);
 }

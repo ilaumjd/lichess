@@ -115,6 +115,25 @@ void main() {
       expect(find.textContaining('This move gives checkmate'), findsOneWidget);
     });
 
+    testWidgets('Review game button on the result dialog opens the game review', (tester) async {
+      await initOverTheBoardGame(tester, const TimeIncrement(60, 5));
+      await playMove(tester, 'e2', 'e4');
+      await playMove(tester, 'f7', 'f6');
+      await playMove(tester, 'd2', 'd4');
+      await playMove(tester, 'g7', 'g5');
+      await playMove(tester, 'd1', 'h5');
+      await tester.pumpAndSettle(const Duration(milliseconds: 600));
+      expect(find.text('Checkmate • White is victorious'), findsOneWidget);
+
+      await tester.tap(find.text('Review game (AI)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Game review'), findsOneWidget);
+      expect(find.textContaining('5 half-moves'), findsOneWidget);
+      // Both sides, since an over-the-board game has no player side.
+      expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Both')).selected, isTrue);
+    });
+
     testWidgets('Clock stops after checkmate when dismissing the result dialog', (tester) async {
       // Regression test for https://github.com/lichess-org/mobile/issues/3346
       await initOverTheBoardGame(tester, const TimeIncrement(60, 5));

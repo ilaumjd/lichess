@@ -24,6 +24,55 @@ String aiCoachVerdictText(MoveVerdict verdict) => switch (verdict) {
   .blunder => 'blunder (a serious error)',
 };
 
+/// How good a move was, from the engine's evaluations around it.
+typedef AiCoachJudgement = ({
+  MoveVerdict verdict,
+
+  /// How much the mover's winning chances fell compared with the engine's best move (0 to 2).
+  double shift,
+  bool playedIsBest,
+
+  /// The evaluation after the move for display, or "checkmate" / "draw" when the move ends the game.
+  String evalAfterText,
+});
+
+/// Judges [played] from [before]: the verdict uses the thresholds of the app's practice mode.
+///
+/// [evalBefore] evaluates [before]; [evalAfter] evaluates the position after the move and may be
+/// null only when the move ends the game, whose result is then known (a win for the mover after a
+/// checkmate, a draw otherwise).
+AiCoachJudgement judgeAiCoachMove({
+  required Position before,
+  required Move played,
+  required ClientEval evalBefore,
+  required ClientEval? evalAfter,
+}) {
+  final after = before.playUnchecked(played);
+  final gameOver = after.isGameOver;
+  final mover = before.turn;
+  final winningChancesBefore = evalBefore.winningChances(mover);
+  final winningChancesAfter = gameOver
+      ? (after.isCheckmate ? 1.0 : 0.0)
+      : evalAfter!.winningChances(mover);
+  final playedIsBest = evalBefore.pvs.first.moves.first == played.uci;
+  final shift = winningChancesBefore - winningChancesAfter;
+  return (
+    verdict: MoveVerdict.fromShift(
+      shift,
+      hasBetterMove: !playedIsBest,
+      winningChancesBefore: winningChancesBefore,
+      winningChancesAfter: winningChancesAfter,
+    ),
+    shift: shift,
+    playedIsBest: playedIsBest,
+    evalAfterText: !gameOver
+        ? evalAfter!.evalString
+        : after.isCheckmate
+        ? 'checkmate'
+        : 'draw',
+  );
+}
+
 /// Builds the request that explains the move [played] from the position [before].
 ///
 /// [evalBefore] must be an evaluation of [before] and [evalAfter] of the position after the
@@ -50,23 +99,16 @@ AiCoachRequest makeAiCoachMoveRequest({
   final afterLines = gameOver ? null : describeEngineLines(after, evalAfter, level: level);
 
   final mover = before.turn;
-  final winningChancesBefore = evalBefore!.winningChances(mover);
-  final winningChancesAfter = gameOver
-      ? (after.isCheckmate ? 1.0 : 0.0)
-      : evalAfter!.winningChances(mover);
-  final evalAfterText = !gameOver
-      ? evalAfter!.evalString
-      : after.isCheckmate
-      ? 'checkmate'
-      : 'draw';
-  final bestUci = evalBefore.pvs.first.moves.first;
-  final playedIsBest = bestUci == played.move.uci;
-  final verdict = MoveVerdict.fromShift(
-    winningChancesBefore - winningChancesAfter,
-    hasBetterMove: !playedIsBest,
-    winningChancesBefore: winningChancesBefore,
-    winningChancesAfter: winningChancesAfter,
+  final judgement = judgeAiCoachMove(
+    before: before,
+    played: played.move,
+    evalBefore: evalBefore!,
+    evalAfter: evalAfter,
   );
+  final verdict = judgement.verdict;
+  final playedIsBest = judgement.playedIsBest;
+  final evalAfterText = judgement.evalAfterText;
+  final bestUci = evalBefore.pvs.first.moves.first;
 
   final bestMove = Move.parse(bestUci);
   final bestSan = bestMove != null && before.isLegal(bestMove)

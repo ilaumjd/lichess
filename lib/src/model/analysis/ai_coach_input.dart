@@ -1,11 +1,22 @@
 import 'package:dartchess/dartchess.dart';
+import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
 
+/// One move of a game, with the position it was played from.
+typedef AiCoachPly = ({Position before, SanMove move});
+
 /// What a pasted FEN or PGN describes: the position to explain, the moves leading to it, and the
-/// last move when there is one (then the coach explains that move).
-typedef AiCoachInput = ({Position position, String moves, AiCoachMoveContext? lastMove});
+/// last move when there is one (then the coach explains that move). [plies] is the whole game, in
+/// order, and [result] the PGN's Result tag (such as `1-0`), when it has one.
+typedef AiCoachInput = ({
+  Position position,
+  String moves,
+  AiCoachMoveContext? lastMove,
+  IList<AiCoachPly> plies,
+  String? result,
+});
 
 /// The longest text accepted, so a huge paste cannot freeze the parser.
 const kAiCoachMaxInputLength = 30000;
@@ -24,7 +35,13 @@ AiCoachInput parseAiCoachInput(String text) {
   if (!input.contains('\n') && input.contains('/') && !input.contains('[')) {
     try {
       final position = Chess.fromSetup(Setup.parseFen(input));
-      return (position: position, moves: '', lastMove: null);
+      return (
+        position: position,
+        moves: '',
+        lastMove: null,
+        plies: const IListConst([]),
+        result: null,
+      );
     } on Object {
       throw const AiCoachException('That does not look like a valid FEN position.');
     }
@@ -51,6 +68,7 @@ AiCoachInput parseAiCoachInput(String text) {
   }
 
   var position = start;
+  final plies = <AiCoachPly>[];
   final sans = <String>[];
   Position? before;
   SanMove? last;
@@ -62,6 +80,7 @@ AiCoachInput parseAiCoachInput(String text) {
     before = position;
     final (next, san) = position.makeSan(move);
     last = SanMove(san, move);
+    plies.add((before: before, move: last));
     sans.add(san);
     position = next;
   }
@@ -72,7 +91,13 @@ AiCoachInput parseAiCoachInput(String text) {
     if (!input.contains('[')) {
       throw const AiCoachException('Could not find a position or any moves in that text.');
     }
-    return (position: position, moves: '', lastMove: null);
+    return (
+      position: position,
+      moves: '',
+      lastMove: null,
+      plies: const IListConst([]),
+      result: game.headers['Result'],
+    );
   }
   return (
     position: position,
@@ -84,5 +109,7 @@ AiCoachInput parseAiCoachInput(String text) {
       evalAfter: null,
       movesBefore: sans.sublist(0, sans.length - 1).join(' '),
     ),
+    plies: plies.toIList(),
+    result: game.headers['Result'],
   );
 }

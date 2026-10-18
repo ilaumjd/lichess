@@ -15,6 +15,7 @@ import 'package:lichess_mobile/src/model/game/playable_game.dart';
 import 'package:lichess_mobile/src/model/tournament/tournament_controller.dart';
 import 'package:lichess_mobile/src/tab_navigation.dart';
 import 'package:lichess_mobile/src/utils/l10n_context.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_review_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_screen.dart';
 import 'package:lichess_mobile/src/view/game/status_l10n.dart';
@@ -260,6 +261,12 @@ class _GameResultDialogState() extends ConsumerState<GameResultDialog> {
                 onPressed: () => openAiCoachForPgn(context, value.game.makePgn()),
                 child: const Text('AI coach', textAlign: TextAlign.center),
               ),
+            if (value.game.userAnalysable && value.game.meta.variant == Variant.standard)
+              FilledButton.tonal(
+                onPressed: () =>
+                    openAiCoachReviewForPgn(context, value.game.makePgn(), side: value.game.youAre),
+                child: const Text('Review game (AI)', textAlign: TextAlign.center),
+              ),
           ],
         ),
       ),
@@ -304,6 +311,11 @@ class const OverTheBoardGameResultDialog({
           FilledButton.tonal(
             onPressed: () => openAiCoachForPgn(context, game.makePgn()),
             child: const Text('AI coach', textAlign: TextAlign.center),
+          ),
+        if (game.meta.variant == Variant.standard)
+          FilledButton.tonal(
+            onPressed: () => openAiCoachReviewForPgn(context, game.makePgn()),
+            child: const Text('Review game (AI)', textAlign: TextAlign.center),
           ),
       ],
     );
