@@ -279,7 +279,7 @@ void main() {
         );
         expect(
           messages.first['content'],
-          '${aiCoachSystemPromptFor(level)} ${aiCoachFollowUpPromptFor(level)}',
+          '${aiCoachSystemPromptFor(level, structured: false)} ${aiCoachFollowUpPromptFor(level)}',
         );
       });
     }

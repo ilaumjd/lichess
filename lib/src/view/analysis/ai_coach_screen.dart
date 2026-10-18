@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_alternative.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_answer.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_input.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_answer_view.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_boards_view.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_history_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
@@ -374,7 +376,10 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
           if (_answer != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              child: SelectableText(_answer!),
+              child: AiCoachAnswerView(
+                stored: _answer!,
+                verdict: request == null ? null : aiCoachVerdictFromEvidence(request.evidence),
+              ),
             ),
           for (final turn in _followUps) ...[
             Text('You: ${turn.question}', style: const TextStyle(fontWeight: FontWeight.bold)),

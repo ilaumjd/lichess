@@ -10,7 +10,7 @@ import 'package:material_ui/material_ui.dart';
 
 const aiCoachKeyStorage = 'aiCoach.openaiKey';
 const aiCoachModelStorage = 'aiCoach.model';
-const aiCoachDefaultModel = 'gpt-4o-mini';
+const aiCoachDefaultModel = 'gpt-6-luna';
 
 class const AiCoachSettingsScreen({super.key}) extends ConsumerStatefulWidget {
   static Route<void> buildRoute() => buildScreenRoute(screen: const AiCoachSettingsScreen());
@@ -150,7 +150,7 @@ class _AiCoachSettingsScreenState() extends ConsumerState<AiCoachSettingsScreen>
           autocorrect: false,
           decoration: const InputDecoration(
             labelText: 'OpenAI model',
-            helperText: 'For example: gpt-4o-mini',
+            helperText: 'For example: gpt-6-luna',
           ),
         ),
         const SizedBox(height: 20),

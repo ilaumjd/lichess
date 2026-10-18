@@ -6,12 +6,34 @@ This optional feature is specific to `ilaumjd/lichess`. It is not an official Li
 
 1. Open **Settings → AI coach**.
 2. Enter your own OpenAI API key and a Chat Completions-compatible model name.
-   The default is `gpt-4o-mini`. API billing is separate from a ChatGPT subscription.
+   The default is `gpt-6-luna` (a model you already saved stays as you set it). API billing is separate from a ChatGPT subscription.
 3. Open a standard-chess position in Analysis and enable engine analysis.
 4. Wait for evaluation depth 12 or greater.
 5. Open the app bar **… → Explain position (AI)**.
 6. Inspect the evidence, then tap **Explain** to send the request (or reopen an exact saved match).
 7. Open **Explanation history** from the explanation screen or AI coach settings to revisit notes.
+
+## How answers are delivered and shown
+
+The first answer of an explanation, and the game-review summary, are requested as JSON in a fixed
+schema (a `headline` and titled `sections`) using OpenAI's structured outputs, never Markdown. The
+prompt names the section titles for your level (Why, Idea, Lesson / Why, Idea, Watch / Key line,
+Alternatives; the review: Pattern, Practise, Well done). The screen lays it out as:
+
+- a **verdict badge** (Good move, Not the best, Inaccuracy, Mistake, Blunder), coloured, taken from
+  the verdict the app computed from the evaluations, not from the AI;
+- the **headline**, bold;
+- a **card per section** with its title;
+- the **moves named in the text** highlighted (plain highlight, not tappable);
+- a line saying the moves were **checked against Stockfish's lines**, or which ones could not be
+  verified.
+
+The move check runs over the headline and all the sections together, retries once, and is stored
+inside the answer. If a model rejects the schema (HTTP 400) the app asks again without it, and a
+reply that is not in the schema is shown as plain text with the old note appended. Follow-up
+answers stay plain text (short and free-form), and receive the first answer flattened to text.
+Answers saved before this change are plain text and are shown as they were; the history list shows
+a readable line for either kind.
 
 ## Which side is the user?
 

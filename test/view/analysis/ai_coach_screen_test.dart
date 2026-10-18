@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_answer.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
@@ -958,6 +959,93 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(StaticChessboard), findsNothing);
       expect(find.text('An old note.'), findsOneWidget);
+    });
+  });
+
+  group('structured answers', () {
+    final structured = AiCoachAnswer.tryParse(
+      '{"headline": "Nf3 develops the knight.", "sections": [ '
+      '{"title": "Why", "text": "It controls the centre."}, '
+      '{"title": "Lesson", "text": "Develop first."} ]}',
+    )!.withCheck(AiCoachCheckResult.verified).toStored();
+
+    const evidence =
+        'Task: explain the move that was played, not only the position.\n'
+        'Position before the move (FEN): rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\n'
+        'Move played: Nf3\n'
+        'Verdict (computed by the app from the change in evaluation): mistake\n'
+        "The engine's first choice was e4.\n";
+
+    Future<void> openSaved(WidgetTester tester) async {
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Explain'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<Widget> screenWith(WidgetTester tester, String savedAnswer) => makeTestProviderScopeApp(
+      tester,
+      home: AiCoachScreen(
+        prepare: (_, _) async => AiCoachRequest(evidence: evidence, allowedMoves: ISet<String>()),
+      ),
+      defaultPreferences: {
+        aiCoachHistoryStorageKey: jsonEncode([
+          {
+            'savedAt': '2026-10-17T00:00:00Z',
+            'model': aiCoachDefaultModel,
+            'evidence': evidence,
+            'explanation': savedAnswer,
+          },
+        ]),
+      },
+    );
+
+    testWidgets('the explanation is laid out with the verdict the app computed', (tester) async {
+      await tester.pumpWidget(await screenWith(tester, structured));
+      await openSaved(tester);
+      await scrollTo(tester, find.text('Mistake'));
+      expect(find.text('Mistake'), findsOneWidget);
+      expect(find.text('Nf3 develops the knight.', findRichText: true), findsOneWidget);
+      await scrollTo(tester, find.text('LESSON'));
+      expect(find.text('WHY'), findsOneWidget);
+      await scrollTo(tester, find.text("Moves checked against Stockfish's lines"));
+    });
+
+    testWidgets('an answer saved as plain text is still shown', (tester) async {
+      await tester.pumpWidget(await screenWith(tester, 'An old plain explanation.'));
+      await openSaved(tester);
+      expect(find.text('An old plain explanation.'), findsOneWidget);
+      expect(find.text('WHY'), findsNothing);
+    });
+
+    testWidgets('the history shows the layout too, and a readable line in the list', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: const AiCoachHistoryScreen(),
+          defaultPreferences: {
+            aiCoachHistoryStorageKey: jsonEncode([
+              {
+                'savedAt': '2026-10-17T00:00:00Z',
+                'model': aiCoachDefaultModel,
+                'evidence': evidence,
+                'explanation': structured,
+              },
+            ]),
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      // The list shows the answer as text, not as raw JSON.
+      expect(find.textContaining('Nf3 develops the knight.'), findsOneWidget);
+      expect(find.textContaining('"headline"'), findsNothing);
+
+      await tester.tap(find.textContaining('Nf3 develops the knight.'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mistake'), findsOneWidget);
+      await scrollTo(tester, find.text('LESSON'));
+      expect(find.text('WHY'), findsOneWidget);
     });
   });
 }

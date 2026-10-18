@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_alternative.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_answer.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_boards.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_answer_view.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_boards_view.dart';
 import 'package:lichess_mobile/src/widgets/platform.dart';
 import 'package:material_ui/material_ui.dart';
@@ -71,7 +73,11 @@ class const AiCoachHistoryScreen({super.key}) extends ConsumerWidget {
             ),
           for (final entry in history)
             ListTile(
-              title: Text(entry.explanation, maxLines: 2, overflow: TextOverflow.ellipsis),
+              title: Text(
+                aiCoachPlainText(entry.explanation),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(
                 '${entry.savedAt.toLocal().toString().split('.').first} · ${entry.model}',
               ),
@@ -103,7 +109,10 @@ class const AiCoachHistoryDetailScreen({required final AiCoachHistoryEntry entry
           AiCoachBoardsView(boards: boards),
           const SizedBox(height: 16),
         ],
-        SelectableText(entry.explanation),
+        AiCoachAnswerView(
+          stored: entry.explanation,
+          verdict: aiCoachVerdictFromEvidence(entry.evidence),
+        ),
         const SizedBox(height: 16),
         for (final turn in entry.followUps) ...[
           Text('You: ${turn.question}', style: const TextStyle(fontWeight: FontWeight.bold)),

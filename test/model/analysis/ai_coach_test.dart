@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_answer.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/engine/engine_utils.dart';
@@ -498,6 +499,177 @@ void main() {
     test('the line is only there when the side is known', () {
       expect(aiCoachUserLine(null), isEmpty);
       expect(aiCoachUserLine(Side.white), 'The user is playing White.\n');
+    });
+  });
+
+  group('structured answers', () {
+    Map<String, dynamic> structuredReply(
+      List<String> sectionTexts, {
+      String headline = 'Headline.',
+    }) => {
+      'headline': headline,
+      'sections': [
+        for (var i = 0; i < sectionTexts.length; i++) {'title': 'S$i', 'text': sectionTexts[i]},
+      ],
+    };
+
+    /// A client whose successive replies are [contents], and which records every request body.
+    ({MockClient client, List<Map<String, dynamic>> bodies}) replying(
+      List<String> contents, {
+      int? failFirstWith,
+    }) {
+      final bodies = <Map<String, dynamic>>[];
+      var i = 0;
+      final client = MockClient((request) async {
+        bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+        if (failFirstWith != null && bodies.length == 1) return http.Response('no', failFirstWith);
+        final content = contents[(i++).clamp(0, contents.length - 1)];
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': content},
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      return (client: client, bodies: bodies);
+    }
+
+    final request = makeAiCoachRequest(Chess.initial, evaluation, '');
+
+    Future<String> explain(AiCoach coach, {bool withMoves = true}) => coach.explain(
+      apiKey: 'k',
+      model: 'm',
+      evidence: request.evidence,
+      allowedMoves: withMoves ? request.allowedMoves : null,
+    );
+
+    test('the request asks for the JSON schema', () async {
+      final r = replying([
+        jsonEncode(structuredReply(['Develop.'])),
+      ]);
+      await explain(AiCoach(r.client));
+      final format = r.bodies.single['response_format'] as Map<String, dynamic>;
+      expect(format['type'], 'json_schema');
+      final schema = format['json_schema'] as Map<String, dynamic>;
+      expect(schema['strict'], true);
+      expect(schema['schema'], aiCoachAnswerSchema);
+    });
+
+    test('the instructions ask for JSON and no Markdown', () async {
+      final r = replying([
+        jsonEncode(structuredReply(['Develop.'])),
+      ]);
+      await explain(AiCoach(r.client));
+      final system = (r.bodies.single['messages'] as List<dynamic>).first as Map<String, dynamic>;
+      expect(system['content'], contains('Reply as JSON'));
+      expect(system['content'], contains('no Markdown'));
+    });
+
+    test('a structured reply is saved as an answer with the check inside it', () async {
+      final r = replying([
+        jsonEncode(structuredReply(['Nf3 develops a knight.'])),
+      ]);
+      final stored = await explain(AiCoach(r.client));
+      final answer = AiCoachAnswer.tryParse(stored)!;
+      expect(answer.headline, 'Headline.');
+      expect(answer.check, AiCoachCheckResult.verified);
+      expect(stored, isNot(contains('✓')));
+    });
+
+    test('an answer that names no moves has no check at all', () async {
+      final r = replying([
+        jsonEncode(structuredReply(['Develop your pieces.'])),
+      ]);
+      expect(AiCoachAnswer.tryParse(await explain(AiCoach(r.client)))!.check, isNull);
+    });
+
+    test('a move that was not supplied triggers one retry, and is flagged if it stays', () async {
+      final bad = jsonEncode(structuredReply(['Qh5 attacks.']));
+      final r = replying([bad, bad]);
+      final answer = AiCoachAnswer.tryParse(await explain(AiCoach(r.client)))!;
+      expect(r.bodies, hasLength(2));
+      expect(answer.check, AiCoachCheckResult.unverified);
+      expect(answer.unverified, ['Qh5']);
+    });
+
+    test('the retry can fix it', () async {
+      final r = replying([
+        jsonEncode(structuredReply(['Qh5 attacks.'])),
+        jsonEncode(structuredReply(['Nf3 develops.'])),
+      ]);
+      final answer = AiCoachAnswer.tryParse(await explain(AiCoach(r.client)))!;
+      expect(r.bodies, hasLength(2));
+      expect(answer.check, AiCoachCheckResult.verified);
+      expect(answer.sections.single.text, 'Nf3 develops.');
+      // The retry keeps the schema, and shows the model its own answer.
+      expect(r.bodies[1]['response_format'], isNotNull);
+      expect(jsonEncode(r.bodies[1]['messages']), contains('Qh5'));
+    });
+
+    test('moves in the headline are checked too', () async {
+      final bad = jsonEncode(structuredReply(['Fine.'], headline: 'Qh5 wins.'));
+      final r = replying([bad, bad]);
+      expect(AiCoachAnswer.tryParse(await explain(AiCoach(r.client)))!.unverified, ['Qh5']);
+    });
+
+    test('without moves to check the answer is stored as it came', () async {
+      final r = replying([
+        jsonEncode(structuredReply(['Qh5 attacks.'])),
+      ]);
+      final answer = AiCoachAnswer.tryParse(await explain(AiCoach(r.client), withMoves: false))!;
+      expect(r.bodies, hasLength(1));
+      expect(answer.check, isNull);
+    });
+
+    test('a model that rejects the schema is asked again without it, and still works', () async {
+      final r = replying(['Nf3 develops a knight.'], failFirstWith: 400);
+      final stored = await explain(AiCoach(r.client));
+      expect(r.bodies, hasLength(2));
+      expect(r.bodies[0]['response_format'], isNotNull);
+      expect(r.bodies[1]['response_format'], isNull);
+      // Plain text is handled the way it always was.
+      expect(AiCoachAnswer.tryParse(stored), isNull);
+      expect(stored, contains('Nf3 develops a knight.'));
+      expect(stored, contains('Moves checked'));
+    });
+
+    test('a model that ignores the schema and answers in plain text still works', () async {
+      final r = replying(['Qh5 attacks.']);
+      final stored = await explain(AiCoach(r.client));
+      expect(AiCoachAnswer.tryParse(stored), isNull);
+      expect(stored, contains('Could not verify'));
+    });
+
+    test('other errors are still reported, not retried', () async {
+      final r = replying(['x'], failFirstWith: 500);
+      await expectLater(explain(AiCoach(r.client)), throwsA(isA<AiCoachException>()));
+      expect(r.bodies, hasLength(1));
+    });
+
+    test('follow-ups stay plain text, and get the first answer flattened', () async {
+      final r = replying(['Because it develops.']);
+      final first = AiCoachAnswer.tryParse(jsonEncode(structuredReply(['Develop.'])))!
+          .withCheck(AiCoachCheckResult.verified)
+          .toStored();
+      final answer = await AiCoach(r.client).followUp(
+        apiKey: 'k',
+        model: 'm',
+        evidence: 'E',
+        firstAnswer: first,
+        previous: const [],
+        question: 'Why?',
+      );
+      expect(answer, 'Because it develops.');
+      expect(r.bodies.single['response_format'], isNull);
+      final messages = (r.bodies.single['messages'] as List<dynamic>).cast<Map<String, dynamic>>();
+      expect(messages.first['content'], isNot(contains('Reply as JSON')));
+      expect(messages.first['content'], contains('plain text only'));
+      expect(messages[2]['content'], 'Headline.\nS0: Develop.');
     });
   });
 }

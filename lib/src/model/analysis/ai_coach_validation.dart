@@ -21,6 +21,21 @@ String normalizeAiCoachMove(String san) {
   return move;
 }
 
+/// [text] cut into pieces, each marked as a move named in it or as ordinary text, in order, so that
+/// the moves can be drawn differently. Joining the pieces gives [text] back.
+List<({String text, bool isMove})> splitAiCoachMoves(String text) {
+  final pieces = <({String text, bool isMove})>[];
+  var last = 0;
+  for (final match in _moveMention.allMatches(text)) {
+    // The pattern may include a check mark but never its lookarounds: use the whole match.
+    if (match.start > last) pieces.add((text: text.substring(last, match.start), isMove: false));
+    pieces.add((text: text.substring(match.start, match.end), isMove: true));
+    last = match.end;
+  }
+  if (last < text.length) pieces.add((text: text.substring(last), isMove: false));
+  return pieces;
+}
+
 /// The moves named in [text] (the same kinds of mention [checkAiCoachAnswer] checks).
 List<String> extractAiCoachMoves(String text) => [
   for (final match in _moveMention.allMatches(text)) match.group(1)!,

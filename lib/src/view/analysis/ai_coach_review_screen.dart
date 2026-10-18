@@ -10,6 +10,7 @@ import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_review.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_answer_view.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_boards_view.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
@@ -356,7 +357,7 @@ class _AiCoachReviewScreenState() extends ConsumerState<AiCoachReviewScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Evaluation ${moment.evalBefore} to ${moment.evalAfter}'
-                                  '${_notes[moment.index] == null ? '' : '\n\n${stripAiCoachNote(_notes[moment.index]!)}'}',
+                                  '${_notes[moment.index] == null ? '' : '\n\n${aiCoachPlainText(_notes[moment.index]!)}'}',
                                 ),
                               ],
                             ),
@@ -410,7 +411,7 @@ class _AiCoachReviewScreenState() extends ConsumerState<AiCoachReviewScreen> {
             const SizedBox(height: 16),
             const Text('Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 8),
-            SelectableText(_summary!),
+            AiCoachAnswerView(stored: _summary!),
           ],
         ],
       ),

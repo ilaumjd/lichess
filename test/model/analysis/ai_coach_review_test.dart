@@ -393,4 +393,16 @@ void main() {
       expect(request.evidence, contains('Reviewing: Black'));
     });
   });
+
+  group('the review summary is structured too', () {
+    test('its instructions ask for JSON with the review sections, and never Markdown', () {
+      for (final level in AiCoachLevel.values) {
+        final prompt = aiCoachReviewPromptFor(level);
+        expect(prompt, contains('Reply as JSON'));
+        expect(prompt, contains('Pattern, Practise, Well done'));
+        expect(prompt, contains('no Markdown'));
+        expect(prompt, contains('speak to the user as "you"'));
+      }
+    });
+  });
 }
