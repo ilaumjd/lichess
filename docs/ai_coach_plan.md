@@ -142,3 +142,14 @@ review mode, pasted FEN/PGN, puzzles. Remains disabled where Lichess disallows e
 ## AI assistance disclosure
 Plan written with OpenAI/Anthropic models via the pi coding agent. Human review required
 before implementation or any upstream contribution (see `AI_POLICY.md`).
+
+## Later (not started, on purpose)
+
+- **Patterns over time (phase 7).** Find habits across several reviewed games: tag each key moment
+  with a type the app can detect itself (a piece left attacked and undefended, a missed capture or
+  check, an opponent threat ignored, material dropped in the opening), count the tags over saved
+  games, and optionally turn the counts into one short note. It needs several reviewed games to
+  mean anything, so the owner chose to wait until the game review has been used on a real phone.
+  When that has happened, look at which patterns actually show up in the owner's games and build
+  the labels around those, rather than guessing them now.
+
