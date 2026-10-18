@@ -13,6 +13,13 @@ String? _after(String evidence, String prefix) {
 Move? _san(Position position, String text) =>
     position.parseSan(text.replaceAll(RegExp(r'[+#.]+$'), ''));
 
+/// The side the evidence says the user plays, or null when it does not say.
+Side? _userSide(String evidence) => switch (_after(evidence, 'The user is playing ')) {
+  'White.' => Side.white,
+  'Black.' => Side.black,
+  _ => null,
+};
+
 /// Rebuilds the boards of a saved explanation from its evidence, so that explanations saved before
 /// the boards existed (and the ones opened from the history) can show them too.
 ///
@@ -36,7 +43,7 @@ AiCoachBoards? aiCoachBoardsFromEvidence(String evidence) {
         position: before.playUnchecked(played),
         played: played,
         best: best,
-        orientation: before.turn,
+        orientation: _userSide(evidence) ?? before.turn,
       );
     }
     if (evidence.startsWith('Task: explain this position.')) {
@@ -52,7 +59,7 @@ AiCoachBoards? aiCoachBoardsFromEvidence(String evidence) {
         position: position,
         played: null,
         best: best,
-        orientation: position.turn,
+        orientation: _userSide(evidence) ?? position.turn,
       );
     }
   } on Object {

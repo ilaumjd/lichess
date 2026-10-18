@@ -181,4 +181,53 @@ void main() {
       );
     });
   });
+
+  group("the user's side in a move explanation", () {
+    // Black plays ...e5 after 1.e4, so Black is the side that moved.
+    final black = Move.parse('e7e5')!;
+    final blackBefore = afterMove('e2e4');
+
+    AiCoachRequest blackMove({Side? userSide}) => makeAiCoachMoveRequest(
+      before: blackBefore,
+      played: SanMove('e5', black),
+      evalBefore: eval(blackBefore, ['e7e5']),
+      evalAfter: eval(blackBefore.play(black), [_firstMove(blackBefore.play(black))]),
+      movesBefore: 'e4',
+      userSide: userSide,
+    );
+
+    test("a move by the opponent is described as the opponent's, from the user's side", () {
+      // The user plays White and Black has just moved: the case of losing as White.
+      final request = blackMove(userSide: Side.white);
+      expect(request.evidence, contains('The user is playing White.'));
+      expect(request.evidence, contains("Side that moved: Black (the user's opponent)"));
+      expect(request.boards!.orientation, Side.white);
+    });
+
+    test("a move by the user is marked as the user's", () {
+      final request = blackMove(userSide: Side.black);
+      expect(request.evidence, contains('Side that moved: Black (the user)'));
+      expect(request.boards!.orientation, Side.black);
+    });
+
+    test('without a known side nothing is claimed and the board follows the mover', () {
+      final request = blackMove();
+      expect(request.evidence, isNot(contains('The user is playing')));
+      expect(request.evidence, contains('Side that moved: Black\n'));
+      expect(request.boards!.orientation, Side.black);
+    });
+
+    test('a different side gives different evidence, so they are saved separately', () {
+      expect(
+        blackMove(userSide: Side.white).evidence,
+        isNot(blackMove(userSide: Side.black).evidence),
+      );
+    });
+  });
+}
+
+/// A legal move from [position], written in UCI, for a line the engine "found".
+String _firstMove(Position position) {
+  final entry = position.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
+  return '${entry.key.name}${entry.value.squares.first.name}';
 }

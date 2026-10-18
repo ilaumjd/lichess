@@ -140,6 +140,9 @@ AiCoachBoards? aiCoachAlternativeBoards({
   required Position position,
   required Move? best,
   required String question,
+
+  /// The side at the bottom: the side the user plays when known, else the side to move.
+  Side? orientation,
 }) {
   final match = RegExp(r'^Why not (.+)\?$').firstMatch(question.trim());
   if (match == null) return null;
@@ -150,7 +153,7 @@ AiCoachBoards? aiCoachAlternativeBoards({
       position: position.playUnchecked(move),
       played: move,
       best: best,
-      orientation: position.turn,
+      orientation: orientation ?? position.turn,
     );
   } on AiCoachException {
     return null;

@@ -1232,7 +1232,7 @@ class const OfflineComputerGameResultDialog({
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              openAiCoachForPgn(context, game.makePgn());
+              openAiCoachForPgn(context, game.makePgn(), side: game.playerSide);
             },
             child: const Text('AI coach'),
           ),

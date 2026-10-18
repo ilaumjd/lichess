@@ -171,6 +171,9 @@ AiCoachBoards aiCoachMomentBoards({
   required IList<AiCoachPly> plies,
   required AiCoachScan scan,
   required AiCoachMoment moment,
+
+  /// The side the user plays, when known: the boards are turned to it, else to the side that moved.
+  Side? userSide,
 }) {
   final ply = plies[moment.index];
   final uci = scan[moment.index]?.pvs.firstOrNull?.moves.firstOrNull;
@@ -180,7 +183,7 @@ AiCoachBoards aiCoachMomentBoards({
     position: ply.before.playUnchecked(ply.move.move),
     played: ply.move.move,
     best: best != null && ply.before.isLegal(best) ? best : null,
-    orientation: ply.before.turn,
+    orientation: userSide ?? ply.before.turn,
   );
 }
 
@@ -222,6 +225,9 @@ AiCoachRequest makeAiCoachReviewRequest({
   Side? side,
   String? result,
   AiCoachLevel level = AiCoachLevel.beginner,
+
+  /// The side the user plays, when the app knows it (the game's own side, not the reviewed one).
+  Side? userSide,
 }) {
   final reviewed = side == null ? 'both sides' : aiCoachSideName(side);
   final judged = stats.good + stats.inaccuracies + stats.mistakes + stats.blunders;
@@ -239,6 +245,7 @@ AiCoachRequest makeAiCoachReviewRequest({
   final evidence =
       'Task: review the whole game.\n'
       'Coach level: ${level.label}\n'
+      '${aiCoachUserLine(userSide)}'
       'Reviewing: $reviewed\n'
       '${result == null || result == '*' ? '' : 'Result: $result\n'}'
       'Half-moves played: ${plies.length}\n'

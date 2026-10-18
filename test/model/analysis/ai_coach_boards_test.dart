@@ -144,4 +144,37 @@ void main() {
       }
     });
   });
+
+  group("the user's side in boards rebuilt from evidence", () {
+    test('a move explanation is turned to the side the evidence names', () {
+      final black = Move.parse('e7e5')!;
+      final before = afterE4;
+      final request = makeAiCoachMoveRequest(
+        before: before,
+        played: SanMove('e5', black),
+        evalBefore: eval(before, ['c7c5']),
+        evalAfter: eval(before.play(black), [firstReply(before.play(black))]),
+        movesBefore: 'e4',
+        userSide: Side.white,
+      );
+      expect(request.boards!.orientation, Side.white);
+      expect(aiCoachBoardsFromEvidence(request.evidence)!.orientation, Side.white);
+    });
+
+    test('a position explanation too', () {
+      final request = makeAiCoachRequest(
+        start,
+        eval(start, ['g1f3', 'g8f6']),
+        '',
+        userSide: Side.black,
+      );
+      expect(aiCoachBoardsFromEvidence(request.evidence)!.orientation, Side.black);
+    });
+
+    test('evidence saved before the side was recorded is still read, by the mover', () {
+      final request = moveRequest(before: afterE4, played: Move.parse('e7e5'), best: 'c7c5');
+      expect(request.evidence, isNot(contains('The user is playing')));
+      expect(aiCoachBoardsFromEvidence(request.evidence)!.orientation, Side.black);
+    });
+  });
 }

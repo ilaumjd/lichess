@@ -20,7 +20,7 @@ typedef AiCoachPrepare = Future<AiCoachRequest> Function(AiCoachEngine engine, A
 
 /// Prepares the request for a parsed FEN or game: the last move when there is one, else the
 /// position. Stockfish runs on demand for whatever has no evaluation yet.
-AiCoachPrepare aiCoachPrepareFor(AiCoachInput input) =>
+AiCoachPrepare aiCoachPrepareFor(AiCoachInput input, {Side? userSide}) =>
     (engine, level) => prepareAiCoachRequest(
       engine,
       position: input.position,
@@ -28,11 +28,13 @@ AiCoachPrepare aiCoachPrepareFor(AiCoachInput input) =>
       moves: input.moves,
       move: input.lastMove,
       level: level,
+      userSide: userSide,
     );
 
 /// Opens the coach on the last move of the game in [pgn] (standard chess only), for the result
-/// dialogs. Shows a message instead when the game cannot be read.
-void openAiCoachForPgn(BuildContext context, String pgn) {
+/// dialogs. [side] is the side the user played, when the app knows it. Shows a message instead
+/// when the game cannot be read.
+void openAiCoachForPgn(BuildContext context, String pgn, {Side? side}) {
   final AiCoachInput input;
   try {
     input = parseAiCoachInput(pgn);
@@ -40,7 +42,8 @@ void openAiCoachForPgn(BuildContext context, String pgn) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
     return;
   }
-  Navigator.of(context).push(AiCoachScreen.buildRoute(prepare: aiCoachPrepareFor(input)));
+  Navigator.of(context)
+      .push(AiCoachScreen.buildRoute(prepare: aiCoachPrepareFor(input, userSide: side)));
 }
 
 /// Explains a position or move.

@@ -204,6 +204,9 @@ Future<AiCoachRequest> prepareAiCoachRequest(
 
   /// Whether to also search what each side threatens. A review skips it to save time.
   bool withThreats = true,
+
+  /// The side the user plays, when the app knows it.
+  Side? userSide,
 }) async {
   Future<ClientEval?> evalFor(Position at, ClientEval? existing) =>
       _usable(at, existing, level) ? Future.value(existing) : engine.evaluate(at, level: level);
@@ -236,6 +239,7 @@ Future<AiCoachRequest> prepareAiCoachRequest(
         threatBefore: threatBefore,
         threatAfter: threatAfter,
         level: level,
+        userSide: userSide,
       );
     } on AiCoachException {
       // Fall through to the position.
@@ -251,5 +255,13 @@ Future<AiCoachRequest> prepareAiCoachRequest(
   final threat = withThreats && _usable(position, eval, level)
       ? await engine.evaluateThreat(position)
       : null;
-  return makeAiCoachRequest(position, eval, moves, opening: opening, threat: threat, level: level);
+  return makeAiCoachRequest(
+    position,
+    eval,
+    moves,
+    opening: opening,
+    threat: threat,
+    level: level,
+    userSide: userSide,
+  );
 }

@@ -276,4 +276,21 @@ void main() {
       expect(same.played, same.best);
     });
   });
+
+  group('aiCoachAlternativeBoards orientation', () {
+    test('is turned to the given side, else to the side that has to choose', () {
+      const start = Chess.initial;
+      final given = aiCoachAlternativeBoards(
+        position: start,
+        best: null,
+        question: 'Why not e4?',
+        orientation: Side.black,
+      );
+      expect(given!.orientation, Side.black);
+      expect(
+        aiCoachAlternativeBoards(position: start, best: null, question: 'Why not e4?')!.orientation,
+        Side.white,
+      );
+    });
+  });
 }

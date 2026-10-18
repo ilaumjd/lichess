@@ -87,6 +87,9 @@ AiCoachRequest makeAiCoachMoveRequest({
   ClientEval? threatBefore,
   ClientEval? threatAfter,
   AiCoachLevel level = AiCoachLevel.beginner,
+
+  /// The side the user plays, when the app knows it.
+  Side? userSide,
 }) {
   if (!before.isLegal(played.move)) {
     throw const AiCoachException('That move is not legal in the position before it.');
@@ -138,9 +141,15 @@ AiCoachRequest makeAiCoachMoveRequest({
   final evidence =
       'Task: explain the move that was played, not only the position.\n'
       'Coach level: ${level.label}\n'
+      '${aiCoachUserLine(userSide)}'
       'Position before the move (FEN): ${before.fen}\n'
       'Move history before the move (SAN): ${movesBefore.isEmpty ? '(none)' : movesBefore}\n'
-      'Side that moved: ${aiCoachSideName(mover)}\n'
+      'Side that moved: ${aiCoachSideName(mover)}'
+      '${userSide == null
+          ? ''
+          : userSide == mover
+          ? ' (the user)'
+          : " (the user's opponent)"}\n'
       'Move played: ${played.san}\n'
       'Verdict (computed by the app from the change in evaluation): ${aiCoachVerdictText(verdict)}\n'
       '$aiCoachScoreNote\n'
@@ -165,7 +174,7 @@ AiCoachRequest makeAiCoachMoveRequest({
       position: after,
       played: played.move,
       best: bestMove,
-      orientation: before.turn,
+      orientation: userSide ?? before.turn,
     ),
     allowedMoves: {
       played.san,

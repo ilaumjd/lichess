@@ -357,4 +357,40 @@ void main() {
       expect(aiCoachMomentBoards(plies: italian, scan: emptied, moment: moment).best, isNull);
     });
   });
+
+  group("the user's side in the review", () {
+    final scan = scanFrom(italian, [20, 20, 20, -400, -400, -380, 300]);
+    final moments = pickKeyMoments(plies: italian, scan: scan);
+
+    test("boards are turned to the user's side, even for the opponent's mistakes", () {
+      final black = moments.firstWhere((m) => m.index == 5);
+      expect(
+        aiCoachMomentBoards(
+          plies: italian,
+          scan: scan,
+          moment: black,
+          userSide: Side.white,
+        ).orientation,
+        Side.white,
+      );
+      // Without a known side, the side that moved.
+      expect(
+        aiCoachMomentBoards(plies: italian, scan: scan, moment: black).orientation,
+        Side.black,
+      );
+    });
+
+    test('the summary request names the side, apart from the side reviewed', () {
+      final request = makeAiCoachReviewRequest(
+        plies: italian,
+        moments: moments,
+        notes: const IMapConst({}),
+        stats: reviewStats(plies: italian, scan: scan),
+        side: Side.black,
+        userSide: Side.white,
+      );
+      expect(request.evidence, contains('The user is playing White.'));
+      expect(request.evidence, contains('Reviewing: Black'));
+    });
+  });
 }

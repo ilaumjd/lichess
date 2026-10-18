@@ -13,6 +13,18 @@ This optional feature is specific to `ilaumjd/lichess`. It is not an official Li
 6. Inspect the evidence, then tap **Explain** to send the request (or reopen an exact saved match).
 7. Open **Explanation history** from the explanation screen or AI coach settings to revisit notes.
 
+## Which side is the user?
+
+The coach only knew who made each move, so after you lost as White it described Black's mating
+move from Black's side and drew the boards from Black's side. Now, where the app knows the side you
+played, it says so in the evidence ("The user is playing White."), marks who made the move ("Side
+that moved: Black (the user's opponent)"), turns every board to your side, and the prompts tell the
+AI to say "you" for your side and "your opponent" for the other. Known today for online games and
+games against the computer (from the game-over buttons and the game review). Not known, so the
+old behaviour (White and Black, boards turned to the side that moved): over-the-board games, the
+analysis screen, and pasted games. The side is part of the evidence, so the same position is saved
+separately for each side, and explanations saved earlier keep working.
+
 ## Boards
 
 The coach screen draws the position above the explanation, in your own board and piece theme.

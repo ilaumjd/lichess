@@ -644,6 +644,69 @@ void main() {
       expect(find.textContaining('Move played: Qh4#'), findsOneWidget);
     });
 
+    testWidgets("losing as White: Black's mating move is the opponent's, seen from White", (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () =>
+                      openAiCoachForPgn(context, '1. f3 e5 2. g4 Qh4# 0-1', side: Side.white),
+                  child: const Text('Open coach'),
+                ),
+              ),
+            ),
+          ),
+          overrides: {
+            aiCoachEngineProvider: aiCoachEngineProvider.overrideWith(FakeCoachEngine.new),
+          },
+        ),
+      );
+      await tester.tap(find.text('Open coach'));
+      var pumps = 0;
+      while (pumps < 300 && find.byType(StaticChessboard).evaluate().isEmpty) {
+        await tester.pump(const Duration(milliseconds: 100));
+        pumps++;
+      }
+      await tester.pumpAndSettle();
+
+      // Both boards are turned to the side the user plays, although Black made the move.
+      final boards = tester.widgetList<StaticChessboard>(find.byType(StaticChessboard)).toList();
+      expect(boards, hasLength(2));
+      for (final board in boards) {
+        expect(board.orientation, Side.white);
+      }
+      await tester.scrollUntilVisible(
+        find.text('Position and engine evidence'),
+        300,
+        scrollable: find
+            .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.tap(find.text('Position and engine evidence'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('The user is playing White.'), findsOneWidget);
+      expect(find.textContaining("Side that moved: Black (the user's opponent)"), findsOneWidget);
+    });
+
+    testWidgets('without a known side the boards follow the side that moved', (tester) async {
+      await tester.pumpWidget(await hostApp(tester, '1. f3 e5 2. g4 Qh4# 0-1'));
+      await tester.tap(find.text('Open coach'));
+      var pumps = 0;
+      while (pumps < 300 && find.byType(StaticChessboard).evaluate().isEmpty) {
+        await tester.pump(const Duration(milliseconds: 100));
+        pumps++;
+      }
+      await tester.pumpAndSettle();
+      for (final board in tester.widgetList<StaticChessboard>(find.byType(StaticChessboard))) {
+        expect(board.orientation, Side.black);
+      }
+    });
+
     testWidgets('an unreadable game shows a message and does not open the coach', (tester) async {
       await tester.pumpWidget(await hostApp(tester, '1. e4 e5 2. Ke4 *'));
       await tester.tap(find.text('Open coach'));

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/engine/engine_utils.dart';
 
@@ -469,6 +470,34 @@ void main() {
       );
       final messages = (body!['messages'] as List<dynamic>).cast<Map<String, dynamic>>();
       expect(messages.last['content'], 'Why?');
+    });
+  });
+
+  group("the user's side", () {
+    test('is named in the evidence and the board is turned to it', () {
+      final request = makeAiCoachRequest(Chess.initial, evaluation, '', userSide: Side.black);
+      expect(request.evidence, contains('The user is playing Black.'));
+      expect(request.boards!.orientation, Side.black);
+    });
+
+    test('is left out, and the board follows the side to move, when it is not known', () {
+      final request = makeAiCoachRequest(Chess.initial, evaluation, '');
+      expect(request.evidence, isNot(contains('The user is playing')));
+      expect(request.boards!.orientation, Side.white);
+    });
+
+    test('every level tells the AI how to speak about the user and the opponent', () {
+      for (final level in AiCoachLevel.values) {
+        final prompt = aiCoachSystemPromptFor(level);
+        expect(prompt, contains('which side the user plays'));
+        expect(prompt, contains('"you"'));
+        expect(prompt, contains('"your opponent"'));
+      }
+    });
+
+    test('the line is only there when the side is known', () {
+      expect(aiCoachUserLine(null), isEmpty);
+      expect(aiCoachUserLine(Side.white), 'The user is playing White.\n');
     });
   });
 }

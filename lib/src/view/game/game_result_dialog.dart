@@ -258,7 +258,8 @@ class _GameResultDialogState() extends ConsumerState<GameResultDialog> {
               ),
             if (value.game.userAnalysable && value.game.meta.variant == Variant.standard)
               FilledButton.tonal(
-                onPressed: () => openAiCoachForPgn(context, value.game.makePgn()),
+                onPressed: () =>
+                    openAiCoachForPgn(context, value.game.makePgn(), side: value.game.youAre),
                 child: const Text('AI coach', textAlign: TextAlign.center),
               ),
             if (value.game.userAnalysable && value.game.meta.variant == Variant.standard)

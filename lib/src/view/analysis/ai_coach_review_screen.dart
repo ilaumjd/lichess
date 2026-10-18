@@ -173,6 +173,7 @@ class _AiCoachReviewScreenState() extends ConsumerState<AiCoachReviewScreen> {
       ),
       level: _level,
       withThreats: false,
+      userSide: widget.side,
     );
   }
 
@@ -199,6 +200,7 @@ class _AiCoachReviewScreenState() extends ConsumerState<AiCoachReviewScreen> {
         side: _side,
         result: widget.input.result,
         level: _level,
+        userSide: widget.side,
       );
       final text = await _answer(
         summary,
@@ -240,6 +242,7 @@ class _AiCoachReviewScreenState() extends ConsumerState<AiCoachReviewScreen> {
           ),
           level: level,
           withThreats: false,
+          userSide: widget.side,
         ),
       ),
     );
@@ -336,6 +339,7 @@ class _AiCoachReviewScreenState() extends ConsumerState<AiCoachReviewScreen> {
                                 plies: _plies,
                                 scan: _scan,
                                 moment: moment,
+                                userSide: widget.side,
                               ),
                             ),
                           ),

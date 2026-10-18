@@ -186,6 +186,22 @@ void main() {
     expect(find.textContaining('green arrow'), findsOneWidget);
   });
 
+  testWidgets("the boards are turned to the user's side, even for the opponent's mistakes", (
+    tester,
+  ) async {
+    await tester.pumpWidget(await app(tester, side: Side.white));
+    // Review both sides, so that Black's blunder is a key moment too.
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Both'));
+    await tester.pumpAndSettle();
+    await scan(tester);
+
+    final boards = tester.widgetList<StaticChessboard>(find.byType(StaticChessboard)).toList();
+    expect(boards, hasLength(2));
+    for (final board in boards) {
+      expect(board.orientation, Side.white);
+    }
+  });
+
   testWidgets('reviewing one side shows only its boards', (tester) async {
     await tester.pumpWidget(await app(tester, side: Side.white));
     await scan(tester);
