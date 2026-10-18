@@ -120,4 +120,11 @@ void main() {
       expect(r.evidence, isNot(contains('Threat:')));
     });
   });
+
+  test('the request remembers where the choice was made, for "why not this move"', () {
+    final r = request(played: 'e2e4', san: 'e4', cpBefore: 30, cpAfter: 28);
+    expect(r.decision, isNotNull);
+    // The position before the move, not after it.
+    expect(r.decision!.position.fen, before.fen);
+  });
 }

@@ -2,6 +2,7 @@ import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_alternative.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
@@ -38,12 +39,17 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
   String? _model;
   IList<AiCoachFollowUp> _followUps = const IListConst([]);
   final _questionController = TextEditingController();
+  final _moveController = TextEditingController();
   bool _asking = false;
+
+  /// Whether Stockfish is analysing a move the user asked about.
+  bool _analysingMove = false;
   String? _followUpError;
 
   @override
   void dispose() {
     _questionController.dispose();
+    _moveController.dispose();
     super.dispose();
   }
 
@@ -138,7 +144,50 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
     }
   }
 
-  Future<void> _ask(AiCoachRequest request, String question) async {
+  /// "Why not this move?": evaluates the move the user typed, then asks the coach to compare it
+  /// with the best one using that evidence.
+  Future<void> _compare(AiCoachRequest request) async {
+    final decision = request.decision;
+    if (decision == null || _asking || _analysingMove) return;
+    setState(() {
+      _analysingMove = true;
+      _followUpError = null;
+    });
+    final AiCoachAlternative alternative;
+    try {
+      alternative = await prepareAiCoachAlternative(
+        ref.read(aiCoachEngineProvider),
+        decision: decision,
+        input: _moveController.text,
+      );
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() {
+          _analysingMove = false;
+          _followUpError = error is AiCoachException
+              ? error.message
+              : 'Stockfish could not analyse that move. Please try again.';
+        });
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _analysingMove = false);
+    await _ask(
+      request,
+      alternative.question,
+      extraEvidence: alternative.evidence,
+      extraMoves: alternative.moves,
+    );
+    if (mounted && _followUpError == null) _moveController.clear();
+  }
+
+  Future<void> _ask(
+    AiCoachRequest request,
+    String question, {
+    String? extraEvidence,
+    ISet<String>? extraMoves,
+  }) async {
     final firstAnswer = _answer;
     final model = _model;
     if (firstAnswer == null || model == null || _asking) return;
@@ -159,6 +208,8 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
             previous: _followUps.unlock,
             question: question,
             allowedMoves: request.allowedMoves,
+            extraEvidence: extraEvidence,
+            extraMoves: extraMoves,
           );
       String? warning;
       try {
@@ -287,23 +338,57 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
                   for (final quick in const ['Explain simpler', 'What should I do differently?'])
                     ActionChip(
                       label: Text(quick),
-                      onPressed: _asking ? null : () => _ask(request, quick),
+                      onPressed: _asking || _analysingMove ? null : () => _ask(request, quick),
                     ),
                 ],
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _questionController,
-                enabled: !_asking,
+                enabled: !_asking && !_analysingMove,
                 minLines: 1,
                 maxLines: 4,
                 maxLength: kAiCoachMaxQuestionLength,
                 decoration: const InputDecoration(labelText: 'Ask a follow-up question'),
               ),
               FilledButton(
-                onPressed: _asking ? null : () => _ask(request, _questionController.text),
+                onPressed: _asking || _analysingMove
+                    ? null
+                    : () => _ask(request, _questionController.text),
                 child: const Text('Ask'),
               ),
+              if (request.decision != null) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _moveController,
+                  enabled: !_asking && !_analysingMove,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  maxLength: kAiCoachMaxMoveInputLength,
+                  decoration: const InputDecoration(
+                    labelText: 'Compare a move (for example Nf3 or e2e4)',
+                  ),
+                ),
+                FilledButton(
+                  onPressed: _asking || _analysingMove ? null : () => _compare(request),
+                  child: const Text('Why not this move?'),
+                ),
+              ],
+              if (_analysingMove)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(child: Text('Analysing that move with Stockfish…')),
+                    ],
+                  ),
+                ),
               if (_asking)
                 const Padding(
                   padding: EdgeInsets.all(16),

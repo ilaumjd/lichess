@@ -17,8 +17,17 @@ final aiCoachProvider = Provider<AiCoach>((ref) {
   return AiCoach(client);
 });
 
+/// Where the choice was made: the position the explanation is about (before the move played, for a
+/// move) and the engine's evaluation of it. It lets the coach compare a move the user names with
+/// the best one.
+typedef AiCoachDecision = ({Position position, ClientEval eval});
+
 /// What is sent to the AI: the evidence text, and the moves the answer is allowed to name.
-typedef AiCoachRequest = ({String evidence, ISet<String> allowedMoves});
+class const AiCoachRequest({
+  required final String evidence,
+  required final ISet<String> allowedMoves,
+  final AiCoachDecision? decision,
+});
 
 /// The engine must have searched at least this deep before the coach will use its result.
 const kAiCoachMinDepth = 12;
@@ -50,7 +59,10 @@ const aiCoachFollowUpPrompt =
     '120 words, still in plain language. Keep using only the supplied engine lines and facts. If '
     'the user names a move that is not in them, say that you have no engine evidence about that '
     'move instead of judging it, and do not invent an evaluation. If asked to simplify, use '
-    'shorter sentences and fewer chess terms.';
+    'shorter sentences and fewer chess terms. When "Extra engine evidence" is supplied for a '
+    "move the user asked about, compare that move with the engine's preferred one using it: say "
+    'what the move does, what it gives up or allows, and why the engine prefers the other move. '
+    'If the move is as good as the best one, say so.';
 
 /// How many earlier follow-ups are sent back as context, and how many one explanation may have.
 const kAiCoachContextTurns = 6;
@@ -170,9 +182,10 @@ AiCoachRequest makeAiCoachRequest(
       'Engine lines:\n${engine.text.join('\n')}\n'
       '${threatInfo == null ? '' : '${threatInfo.text}\n'}'
       'Facts computed by the app:\n${facts.lines.map((l) => '- $l').join('\n')}';
-  return (
+  return AiCoachRequest(
     evidence: evidence,
     allowedMoves: {...engine.moves, ...facts.moves, ...?threatInfo?.moves}.toISet(),
+    decision: (position: position, eval: evaluation!),
   );
 }
 
@@ -230,6 +243,8 @@ class AiCoach(final http.Client client) {
     required List<AiCoachFollowUp> previous,
     required String question,
     ISet<String>? allowedMoves,
+    String? extraEvidence,
+    ISet<String>? extraMoves,
   }) async {
     final trimmed = question.trim();
     if (apiKey.trim().isEmpty || model.trim().isEmpty) {
@@ -250,7 +265,12 @@ class AiCoach(final http.Client client) {
         {'role': 'user', 'content': turn.question},
         {'role': 'assistant', 'content': stripAiCoachNote(turn.answer)},
       ],
-      {'role': 'user', 'content': trimmed},
+      {
+        'role': 'user',
+        'content': extraEvidence == null
+            ? trimmed
+            : '$trimmed\n\nExtra engine evidence for this question:\n$extraEvidence',
+      },
     ];
     final answer = await checkedAnswer(
       apiKey: apiKey,
@@ -258,7 +278,7 @@ class AiCoach(final http.Client client) {
       messages: messages,
       allowedMoves: allowedMoves == null
           ? null
-          : {...allowedMoves, ...extractAiCoachMoves(trimmed)}.toISet(),
+          : {...allowedMoves, ...?extraMoves, ...extractAiCoachMoves(trimmed)}.toISet(),
     );
     return answer;
   }

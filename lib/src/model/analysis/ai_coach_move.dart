@@ -15,7 +15,7 @@ typedef AiCoachMoveContext = ({
   String movesBefore,
 });
 
-String _verdictText(MoveVerdict verdict) => switch (verdict) {
+String aiCoachVerdictText(MoveVerdict verdict) => switch (verdict) {
   .goodMove => 'good move',
   .notBest => 'not the best move, but the position stays winning',
   .inaccuracy => 'inaccuracy (a small slip)',
@@ -85,7 +85,7 @@ AiCoachRequest makeAiCoachMoveRequest({
       'Move history before the move (SAN): ${movesBefore.isEmpty ? '(none)' : movesBefore}\n'
       'Side that moved: ${aiCoachSideName(mover)}\n'
       'Move played: ${played.san}\n'
-      'Verdict (computed by the app from the change in evaluation): ${_verdictText(verdict)}\n'
+      'Verdict (computed by the app from the change in evaluation): ${aiCoachVerdictText(verdict)}\n'
       '$aiCoachScoreNote\n'
       'Evaluation before the move (best line): ${evalBefore.evalString}; '
       'after the move played: ${evalAfter.evalString}\n'
@@ -101,8 +101,9 @@ AiCoachRequest makeAiCoachMoveRequest({
       'Facts about the position after the move:\n'
       '${factsAfter.lines.map((l) => '- $l').join('\n')}';
 
-  return (
+  return AiCoachRequest(
     evidence: evidence,
+    decision: (position: before, eval: evalBefore),
     allowedMoves: {
       played.san,
       ...beforeLines.moves,

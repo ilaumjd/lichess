@@ -399,4 +399,76 @@ void main() {
       expect(stripAiCoachNote('A ✓ inside.'), 'A ✓ inside.');
     });
   });
+
+  group('why not this move', () {
+    test('requests carry the position of the decision and its evaluation', () {
+      final request = makeAiCoachRequest(Chess.initial, evaluation, '');
+      expect(request.decision, isNotNull);
+      expect(request.decision!.position.fen, Chess.initial.fen);
+      expect(request.decision!.eval.depth, 16);
+    });
+
+    test('extra evidence is attached to the question, and its moves are allowed', () async {
+      Map<String, dynamic>? body;
+      final client = MockClient((request) async {
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': 'Nf3 is slower than the engine move e4.'},
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      final answer = await AiCoach(client).followUp(
+        apiKey: 'fake-test-key',
+        model: 'model',
+        evidence: 'EVIDENCE',
+        firstAnswer: 'first',
+        previous: const [],
+        question: 'Why not Nf3?',
+        allowedMoves: {'e4'}.toISet(),
+        extraEvidence: 'COMPARISON DATA',
+        extraMoves: {'Nf3'}.toISet(),
+      );
+      final messages = (body!['messages'] as List<dynamic>).cast<Map<String, dynamic>>();
+      expect(messages.last['content'], startsWith('Why not Nf3?'));
+      expect(messages.last['content'], contains('Extra engine evidence for this question:'));
+      expect(messages.last['content'], contains('COMPARISON DATA'));
+      expect(messages.first['content'], contains('Extra engine evidence'));
+      expect(answer, isNot(contains('Could not verify')));
+    });
+
+    test('without extra evidence the question is sent unchanged', () async {
+      Map<String, dynamic>? body;
+      final client = MockClient((request) async {
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': 'Fine.'},
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      await AiCoach(client).followUp(
+        apiKey: 'fake-test-key',
+        model: 'model',
+        evidence: 'EVIDENCE',
+        firstAnswer: 'first',
+        previous: const [],
+        question: 'Why?',
+      );
+      final messages = (body!['messages'] as List<dynamic>).cast<Map<String, dynamic>>();
+      expect(messages.last['content'], 'Why?');
+    });
+  });
 }

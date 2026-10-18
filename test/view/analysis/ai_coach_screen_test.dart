@@ -9,9 +9,11 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_controller.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
+import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/common/id.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/analysis/analysis_screen.dart';
@@ -19,6 +21,22 @@ import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../test_provider_scope.dart';
+
+/// An engine service that answers instantly, for the screen to compare moves with.
+class FakeCoachEngine(super.ref) extends AiCoachEngine {
+  @override
+  Future<ClientEval?> evaluate(Position position, {Duration timeout = kAiCoachSearchTime}) async {
+    final first = position.legalMoves.entries.first;
+    return CloudEval(
+      position: position,
+      depth: 16,
+      nodes: 1,
+      pvs: IList([
+        PvData(moves: IList(['${first.key.name}${first.value.squares.first.name}']), cp: -50),
+      ]),
+    );
+  }
+}
 
 /// Scrolls the coach screen's list until [finder] is built. The list is lazy, so things far down
 /// are not in the tree until then; the text fields have scrollables of their own, hence the
@@ -51,7 +69,7 @@ void main() {
     await tester.pump();
     expect(find.text('Analysing the position with Stockfish…'), findsOneWidget);
     expect(find.text('Explain'), findsNothing);
-    completer.complete((evidence: 'FEN: later', allowedMoves: ISet<String>()));
+    completer.complete(AiCoachRequest(evidence: 'FEN: later', allowedMoves: ISet<String>()));
     await tester.pumpAndSettle();
     expect(find.text('Analysing the position with Stockfish…'), findsNothing);
     expect(find.text('Explain'), findsOneWidget);
@@ -65,7 +83,7 @@ void main() {
         prepare: (_) async {
           calls++;
           if (calls == 1) throw const AiCoachException('Stockfish ran out of time.');
-          return (evidence: 'FEN: second try', allowedMoves: ISet<String>());
+          return AiCoachRequest(evidence: 'FEN: second try', allowedMoves: ISet<String>());
         },
       ),
     );
@@ -83,7 +101,8 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async => (evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
+        prepare: (_) async =>
+            AiCoachRequest(evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
       ),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
     );
@@ -99,7 +118,8 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async => (evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
+        prepare: (_) async =>
+            AiCoachRequest(evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
       ),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
     );
@@ -175,7 +195,8 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async => (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
+        prepare: (_) async =>
+            AiCoachRequest(evidence: 'FEN: example position', allowedMoves: ISet<String>()),
       ),
     );
     await tester.pumpWidget(app);
@@ -192,7 +213,8 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async => (evidence: 'FEN: example position', allowedMoves: ISet<String>()),
+        prepare: (_) async =>
+            AiCoachRequest(evidence: 'FEN: example position', allowedMoves: ISet<String>()),
       ),
     );
     await tester.pumpWidget(app);
@@ -222,17 +244,27 @@ void main() {
     ProviderContainer containerOf(WidgetTester tester) =>
         ProviderScope.containerOf(tester.element(find.byType(AiCoachScreen)));
 
-    Future<Widget> app(WidgetTester tester, {String? history, MockClient? client}) =>
-        makeTestProviderScopeApp(
-          tester,
-          home: AiCoachScreen(
-            prepare: (_) async => (evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
-          ),
-          defaultPreferences: {aiCoachHistoryStorageKey: history ?? savedHistory},
-          overrides: client == null
-              ? null
-              : {aiCoachProvider: aiCoachProvider.overrideWith((ref) => AiCoach(client))},
-        );
+    Future<Widget> app(
+      WidgetTester tester, {
+      String? history,
+      MockClient? client,
+      AiCoachDecision? decision,
+    }) => makeTestProviderScopeApp(
+      tester,
+      home: AiCoachScreen(
+        prepare: (_) async => AiCoachRequest(
+          evidence: 'FEN: saved position',
+          allowedMoves: ISet<String>(),
+          decision: decision,
+        ),
+      ),
+      defaultPreferences: {aiCoachHistoryStorageKey: history ?? savedHistory},
+      overrides: {
+        if (client != null) aiCoachProvider: aiCoachProvider.overrideWith((ref) => AiCoach(client)),
+        if (decision != null)
+          aiCoachEngineProvider: aiCoachEngineProvider.overrideWith((ref) => FakeCoachEngine(ref)),
+      },
+    );
 
     MockClient replying(String text, {List<Map<String, dynamic>>? bodies}) => MockClient((r) async {
       bodies?.add(jsonDecode(r.body) as Map<String, dynamic>);
@@ -428,6 +460,93 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('You: What is castling?'), findsOneWidget);
       expect(find.text('A king safety move.'), findsOneWidget);
+    });
+    group('why not this move', () {
+      AiCoachDecision decision() => (
+        position: Chess.initial,
+        eval: CloudEval(
+          position: Chess.initial,
+          depth: 16,
+          nodes: 1,
+          pvs: IList([
+            PvData(moves: IList(const ['e2e4', 'e7e5']), cp: 30),
+          ]),
+        ),
+      );
+
+      const moveField = 'Compare a move (for example Nf3 or e2e4)';
+
+      Future<void> compare(WidgetTester tester, String move) async {
+        await scrollTo(tester, find.widgetWithText(TextField, moveField));
+        await tester.enterText(find.widgetWithText(TextField, moveField), move);
+        await scrollTo(tester, find.text('Why not this move?'));
+        await tester.tap(find.text('Why not this move?'));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('evaluates the named move and asks the coach to compare it', (tester) async {
+        final bodies = <Map<String, dynamic>>[];
+        await tester.pumpWidget(
+          await app(
+            tester,
+            decision: decision(),
+            client: replying('Nf3 is fine but e4 grabs more space.', bodies: bodies),
+          ),
+        );
+        await SecureStorage.instance.write(key: aiCoachKeyStorage, value: 'fake-widget-key');
+        await openSaved(tester);
+
+        await compare(tester, 'nf3');
+
+        expect(find.text('You: Why not Nf3?'), findsOneWidget);
+        // Nf3 came from the comparison evidence, so the answer passes the move check.
+        expect(find.textContaining('Nf3 is fine but e4 grabs more space.'), findsOneWidget);
+        expect(find.textContaining('Moves checked against'), findsOneWidget);
+        final last = (bodies.single['messages'] as List<dynamic>).last as Map<String, dynamic>;
+        expect(last['content'], startsWith('Why not Nf3?'));
+        expect(last['content'], contains('Extra engine evidence for this question:'));
+        expect(last['content'], contains('why not play Nf3 instead?'));
+        expect(last['content'], contains("The engine's preferred move: e4"));
+        // Saved with the explanation under its clean question, and the move box is cleared.
+        final saved = containerOf(tester).read(aiCoachHistoryProvider).single;
+        expect(saved.followUps.single.question, 'Why not Nf3?');
+        // The list grew, so go back up to the move box (it is built lazily).
+        await tester.drag(find.byType(ListView).first, const Offset(0, 3000));
+        await tester.pumpAndSettle();
+        await scrollTo(tester, find.widgetWithText(TextField, moveField));
+        final field = tester.widget<TextField>(find.widgetWithText(TextField, moveField));
+        expect(field.controller!.text, isEmpty);
+      });
+
+      testWidgets('an illegal move shows why and sends nothing', (tester) async {
+        var requests = 0;
+        await tester.pumpWidget(
+          await app(
+            tester,
+            decision: decision(),
+            client: MockClient((_) async {
+              requests++;
+              return http.Response('{}', 200);
+            }),
+          ),
+        );
+        await SecureStorage.instance.write(key: aiCoachKeyStorage, value: 'fake-widget-key');
+        await openSaved(tester);
+
+        await compare(tester, 'Ke4');
+
+        expect(find.textContaining('not a legal move'), findsOneWidget);
+        expect(find.textContaining('You:'), findsNothing);
+        expect(requests, 0);
+        expect(containerOf(tester).read(aiCoachHistoryProvider).single.followUps, isEmpty);
+      });
+
+      testWidgets('is not offered when the explanation has no decision position', (tester) async {
+        await tester.pumpWidget(await app(tester));
+        await openSaved(tester);
+        await scrollTo(tester, find.text('Ask'));
+        expect(find.text('Why not this move?'), findsNothing);
+      });
     });
   });
 }

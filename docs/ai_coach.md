@@ -63,6 +63,19 @@ instead of judging it. One explanation takes up to 6 follow-ups, and questions a
 no API key) and shown again when you reopen it or open it from history. Saving the same
 evidence again starts a fresh conversation. Entries saved before this feature still load.
 
+## Why not this move?
+
+Under the follow-up box there is a field for a move and a **Why not this move?** button. Type a
+move as SAN (`Nf3`, `nf3`, `exd5`, `O-O`, `0-0`) or UCI (`g1f3`); it must be legal in the position
+where the choice was made (the position *before* the move for a move explanation, the position
+itself otherwise). Stockfish then analyses the position after that move on the device (up to 4
+seconds), and the coach is given a real comparison: the engine's preferred move, both
+evaluations, a verdict for the named move computed with the practice-mode thresholds, the engine
+lines after it, and facts about the resulting position. The question is saved in the
+conversation as "Why not Nf3?". A move that gives checkmate, or ends the game in a draw, needs no
+engine. If the named move is the engine's first choice the evidence says so. Unreadable or
+illegal input is refused with a message before any engine or network work starts.
+
 ## Explain a pasted position
 
 **More tab, AI coach**: paste a FEN, or a PGN (first game only; the coach explains its last move,
