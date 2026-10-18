@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_history_screen.dart';
 import 'package:lichess_mobile/src/widgets/platform.dart';
@@ -45,6 +46,14 @@ class _AiCoachSettingsScreenState() extends ConsumerState<AiCoachSettingsScreen>
           _status = 'Could not open secure storage.';
         });
       }
+    }
+  }
+
+  Future<void> _setLevel(AiCoachLevel level) async {
+    try {
+      await ref.read(aiCoachLevelProvider.notifier).set(level);
+    } on Object {
+      if (mounted) setState(() => _status = 'Could not save the coach level.');
     }
   }
 
@@ -93,7 +102,7 @@ class _AiCoachSettingsScreenState() extends ConsumerState<AiCoachSettingsScreen>
       padding: const EdgeInsets.all(16).add(MediaQuery.paddingOf(context)),
       children: [
         const Text(
-          'Optional beginner explanations powered by OpenAI. Stockfish stays on your '
+          'Optional explanations powered by OpenAI. Stockfish stays on your '
           'phone. Only when you tap Explain, the current FEN, move history and engine lines are '
           'sent directly to OpenAI. API usage is billed separately from ChatGPT subscriptions. '
           'AI explanations can be wrong. Never use them for assistance in live games.',
@@ -103,6 +112,24 @@ class _AiCoachSettingsScreenState() extends ConsumerState<AiCoachSettingsScreen>
           child: const Text('Explanation history'),
         ),
         const SizedBox(height: 20),
+        const Text('Coach level', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final level in AiCoachLevel.values)
+              ChoiceChip(
+                label: Text(level.label),
+                selected: level == ref.watch(aiCoachLevelProvider),
+                onSelected: (_) => _setLevel(level),
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(ref.watch(aiCoachLevelProvider).description),
+        ),
+        const SizedBox(height: 12),
         TextField(
           controller: _key,
           enabled: !_busy,

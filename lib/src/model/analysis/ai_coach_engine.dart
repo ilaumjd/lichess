@@ -4,6 +4,7 @@ import 'package:dartchess/dartchess.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
@@ -47,13 +48,19 @@ class AiCoachEngine(final Ref ref) {
   /// The deepest evaluation known for [position], however shallow, or null.
   ClientEval? known(Position position) => _analyser.evalFor(position);
 
-  /// Evaluates [position] to at least [kAiCoachMinDepth], waiting up to [timeout].
+  /// Evaluates [position] to at least the depth [level] needs, waiting up to [timeout] (by default
+  /// the time [level] allows).
   ///
   /// Returns whatever was reached when the time ran out, which may be shallower than the
   /// threshold (or null); callers decide whether that is good enough.
-  Future<ClientEval?> evaluate(Position position, {Duration timeout = kAiCoachSearchTime}) async {
+  Future<ClientEval?> evaluate(
+    Position position, {
+    Duration? timeout,
+    AiCoachLevel level = AiCoachLevel.beginner,
+  }) async {
+    final searchTime = timeout ?? level.searchTime;
     final cached = _analyser.evalFor(position);
-    if (cached != null && cached.depth >= kAiCoachMinDepth) return cached;
+    if (cached != null && cached.depth >= level.minDepth) return cached;
 
     final context = EvaluationContext(
       id: const StringId('ai-coach'),
@@ -75,14 +82,18 @@ class AiCoachEngine(final Ref ref) {
         id: context.id,
         variant: Variant.standard,
         threads: budget.offlineEvalThreads,
-        searchTime: timeout,
-        multiPv: budget.offlineEvalMultiPv,
+        searchTime: searchTime,
+        multiPv: level.multiPv(budget.offlineEvalMultiPv),
         threatMode: false,
         initialPosition: position,
         steps: const IListConst<Step>([]),
       ),
     );
-    final eval = await _analyser.usableEval(position, timeout: timeout, minDepth: kAiCoachMinDepth);
+    final eval = await _analyser.usableEval(
+      position,
+      timeout: searchTime,
+      minDepth: level.minDepth,
+    );
     // The search would otherwise run on to the practice target depth, using battery for nothing.
     _analyser.yieldEngine();
     return eval;
@@ -154,10 +165,10 @@ class AiCoachEngine(final Ref ref) {
 }
 
 /// Whether [eval] can be used as it is for [position].
-bool _usable(Position position, ClientEval? eval) =>
+bool _usable(Position position, ClientEval? eval, AiCoachLevel level) =>
     eval != null &&
     eval.position.fen == position.fen &&
-    eval.depth >= kAiCoachMinDepth &&
+    eval.depth >= level.minDepth &&
     eval.pvs.isNotEmpty;
 
 /// Builds the request for the position or move shown, running the engine only for the positions
@@ -172,9 +183,10 @@ Future<AiCoachRequest> prepareAiCoachRequest(
   required String moves,
   String? opening,
   AiCoachMoveContext? move,
+  AiCoachLevel level = AiCoachLevel.beginner,
 }) async {
   Future<ClientEval?> evalFor(Position at, ClientEval? existing) =>
-      _usable(at, existing) ? Future.value(existing) : engine.evaluate(at);
+      _usable(at, existing, level) ? Future.value(existing) : engine.evaluate(at, level: level);
 
   if (move != null && move.before.isLegal(move.played.move)) {
     final after = move.before.playUnchecked(move.played.move);
@@ -183,7 +195,8 @@ Future<AiCoachRequest> prepareAiCoachRequest(
     final evalAfter = gameOver ? null : await evalFor(after, move.evalAfter);
     final evalBefore = await evalFor(move.before, move.evalBefore);
     // Only worth a search once the move can be explained at all.
-    final canExplain = _usable(move.before, evalBefore) && (gameOver || _usable(after, evalAfter));
+    final canExplain =
+        _usable(move.before, evalBefore, level) && (gameOver || _usable(after, evalAfter, level));
     final threatBefore = canExplain ? await engine.evaluateThreat(move.before) : null;
     // An engine that had nothing for the first threat will not have more for the second: skip it
     // rather than make the user wait twice.
@@ -200,6 +213,7 @@ Future<AiCoachRequest> prepareAiCoachRequest(
         opening: opening,
         threatBefore: threatBefore,
         threatAfter: threatAfter,
+        level: level,
       );
     } on AiCoachException {
       // Fall through to the position.
@@ -212,6 +226,6 @@ Future<AiCoachRequest> prepareAiCoachRequest(
     );
   }
   final eval = await evalFor(position, currentEval);
-  final threat = _usable(position, eval) ? await engine.evaluateThreat(position) : null;
-  return makeAiCoachRequest(position, eval, moves, opening: opening, threat: threat);
+  final threat = _usable(position, eval, level) ? await engine.evaluateThreat(position) : null;
+  return makeAiCoachRequest(position, eval, moves, opening: opening, threat: threat, level: level);
 }

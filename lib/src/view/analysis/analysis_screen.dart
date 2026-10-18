@@ -591,13 +591,14 @@ class const _AnalysisMenu({required final AnalysisOptions options}) extends Cons
               final moveContext = controller.currentMoveContext();
               Navigator.of(context).push(
                 AiCoachScreen.buildRoute(
-                  prepare: (engine) => prepareAiCoachRequest(
+                  prepare: (engine, level) => prepareAiCoachRequest(
                     engine,
                     position: position,
                     currentEval: eval,
                     moves: moves,
                     opening: opening,
                     move: moveContext,
+                    level: level,
                   ),
                 ),
               );

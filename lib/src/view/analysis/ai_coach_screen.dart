@@ -6,6 +6,7 @@ import 'package:lichess_mobile/src/model/analysis/ai_coach_alternative.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_input.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_history_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
@@ -13,17 +14,18 @@ import 'package:lichess_mobile/src/widgets/platform.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Builds the request to explain, running Stockfish on demand where an evaluation is missing.
-typedef AiCoachPrepare = Future<AiCoachRequest> Function(AiCoachEngine engine);
+typedef AiCoachPrepare = Future<AiCoachRequest> Function(AiCoachEngine engine, AiCoachLevel level);
 
 /// Prepares the request for a parsed FEN or game: the last move when there is one, else the
 /// position. Stockfish runs on demand for whatever has no evaluation yet.
 AiCoachPrepare aiCoachPrepareFor(AiCoachInput input) =>
-    (engine) => prepareAiCoachRequest(
+    (engine, level) => prepareAiCoachRequest(
       engine,
       position: input.position,
       currentEval: null,
       moves: input.moves,
       move: input.lastMove,
+      level: level,
     );
 
 /// Opens the coach on the last move of the game in [pgn] (standard chess only), for the result
@@ -55,6 +57,9 @@ class const AiCoachScreen({required final AiCoachPrepare prepare, super.key})
 
 class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
   AiCoachRequest? _request;
+
+  /// The level the shown request and answers were made for.
+  AiCoachLevel _level = AiCoachLevel.beginner;
   bool _preparing = true;
   bool _busy = false;
   String? _answer;
@@ -96,7 +101,9 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
       _error = null;
     });
     try {
-      final request = await widget.prepare(ref.read(aiCoachEngineProvider));
+      final level = ref.read(aiCoachLevelProvider);
+      _level = level;
+      final request = await widget.prepare(ref.read(aiCoachEngineProvider), level);
       if (mounted) {
         setState(() {
           _request = request;
@@ -143,6 +150,7 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
         model: model,
         evidence: request.evidence,
         allowedMoves: request.allowedMoves,
+        level: _level,
       );
       String? saveError;
       try {
@@ -169,6 +177,21 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
     }
   }
 
+  /// Opens the settings, and starts over if the level was changed there: the analysis and the
+  /// answers belong to the level they were made for.
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(AiCoachSettingsScreen.buildRoute());
+    if (!mounted || ref.read(aiCoachLevelProvider) == _level) return;
+    setState(() {
+      _request = null;
+      _answer = null;
+      _followUps = const IListConst([]);
+      _error = null;
+      _followUpError = null;
+    });
+    await _prepare();
+  }
+
   /// "Why not this move?": evaluates the move the user typed, then asks the coach to compare it
   /// with the best one using that evidence.
   Future<void> _compare(AiCoachRequest request) async {
@@ -184,6 +207,7 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
         ref.read(aiCoachEngineProvider),
         decision: decision,
         input: _moveController.text,
+        level: _level,
       );
     } on Object catch (error) {
       if (mounted) {
@@ -235,6 +259,7 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
             allowedMoves: request.allowedMoves,
             extraEvidence: extraEvidence,
             extraMoves: extraMoves,
+            level: _level,
           );
       String? warning;
       try {
@@ -314,10 +339,9 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
                 Padding(padding: const EdgeInsets.all(12), child: SelectableText(request.evidence)),
               ],
             ),
+          Text('Coach level: ${_level.label}'),
           TextButton(
-            onPressed: _busy
-                ? null
-                : () => Navigator.of(context).push(AiCoachSettingsScreen.buildRoute()),
+            onPressed: _busy || _asking || _analysingMove ? null : _openSettings,
             child: const Text('AI coach settings'),
           ),
           TextButton(

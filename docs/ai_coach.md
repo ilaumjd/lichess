@@ -13,6 +13,30 @@ This optional feature is specific to `ilaumjd/lichess`. It is not an official Li
 6. Inspect the evidence, then tap **Explain** to send the request (or reopen an exact saved match).
 7. Open **Explanation history** from the explanation screen or AI coach settings to revisit notes.
 
+## Coach level
+
+**Settings, AI coach, Coach level** chooses how much the coach assumes you know. It is saved on the
+phone, shown on the coach screen, and changing it there analyses again for the new level.
+
+| | Beginner (default) | Club player | Advanced |
+|---|---|---|---|
+| Wording | everyday language, terms explained, moves also in words | normal terms, basics not explained, plans and tactics | concise and technical, lines and evaluations |
+| Answer length | up to 170 words | up to 130 | up to 100 |
+| Follow-up length | up to 120 | up to 100 | up to 80 |
+| Structure | Verdict, Why, Idea, Lesson | Verdict, Why, Idea, Watch | Verdict, Key line, Alternatives |
+| Engine lines shown / moves per line | 3 / 12 | 3 / 12 | 4 / 14 |
+| Minimum depth | 12 | 12 | 14 |
+| Search time per position | 4 s | 4 s | 8 s |
+| Lines requested from Stockfish | device default (2 or 3) | same | at least 4 |
+
+Beginner and club differ only in the wording asked of the AI, so they are as fast as each other.
+Only advanced changes what the engine does, and so is the only level that can make you wait
+noticeably longer (up to about 8 seconds per position on a phone). Every level keeps the same
+safety rules (supplied moves only, threat lines are hypothetical, PGN text is untrusted) and the
+same answer checking. The evidence names the level ("Coach level: Club player"), so the same
+position at two levels is saved as two separate explanations, and an evaluation that is deep enough
+for beginner (depth 12 or 13) is not reused for advanced, which wants 14.
+
 ## What the coach is given
 
 The app computes facts itself (`ai_coach_facts.dart`) and passes them with Stockfish's lines,

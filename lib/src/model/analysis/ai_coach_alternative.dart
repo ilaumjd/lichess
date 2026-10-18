@@ -3,6 +3,7 @@ import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_facts.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/engine/practice_comment.dart';
@@ -57,6 +58,7 @@ Future<AiCoachAlternative> prepareAiCoachAlternative(
   AiCoachEngine engine, {
   required AiCoachDecision decision,
   required String input,
+  AiCoachLevel level = AiCoachLevel.beginner,
 }) async {
   final position = decision.position;
   final move = parseAiCoachMoveInput(position, input);
@@ -64,7 +66,7 @@ Future<AiCoachAlternative> prepareAiCoachAlternative(
   final mover = position.turn;
   final moverName = aiCoachSideName(mover);
 
-  final bestLines = describeEngineLines(position, decision.eval);
+  final bestLines = describeEngineLines(position, decision.eval, level: level);
   final bestUci = decision.eval.pvs.first.moves.first;
   final bestMove = Move.parse(bestUci);
   final bestSan = bestMove != null && position.isLegal(bestMove)
@@ -96,10 +98,10 @@ Future<AiCoachAlternative> prepareAiCoachAlternative(
     );
   }
 
-  final ClientEval? evalAfter = await engine.evaluate(after);
+  final ClientEval? evalAfter = await engine.evaluate(after, level: level);
   final AiCoachLines afterLines;
   try {
-    afterLines = describeEngineLines(after, evalAfter);
+    afterLines = describeEngineLines(after, evalAfter, level: level);
   } on AiCoachException {
     throw AiCoachException('Stockfish could not analyse $san in time. Please try again.');
   }

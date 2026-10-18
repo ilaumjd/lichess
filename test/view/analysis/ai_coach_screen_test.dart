@@ -11,6 +11,7 @@ import 'package:lichess_mobile/src/db/secure_storage.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/analysis/analysis_controller.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
@@ -20,12 +21,17 @@ import 'package:lichess_mobile/src/view/analysis/analysis_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../binding.dart';
 import '../../test_provider_scope.dart';
 
 /// An engine service that answers instantly, for the screen to compare moves with.
 class FakeCoachEngine(super.ref) extends AiCoachEngine {
   @override
-  Future<ClientEval?> evaluate(Position position, {Duration timeout = kAiCoachSearchTime}) async {
+  Future<ClientEval?> evaluate(
+    Position position, {
+    Duration? timeout,
+    AiCoachLevel level = AiCoachLevel.beginner,
+  }) async {
     final first = position.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
     return CloudEval(
       position: position,
@@ -63,7 +69,7 @@ void main() {
     final completer = Completer<AiCoachRequest>();
     final app = await makeTestProviderScopeApp(
       tester,
-      home: AiCoachScreen(prepare: (_) => completer.future),
+      home: AiCoachScreen(prepare: (_, _) => completer.future),
     );
     await tester.pumpWidget(app);
     await tester.pump();
@@ -80,7 +86,7 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async {
+        prepare: (_, _) async {
           calls++;
           if (calls == 1) throw const AiCoachException('Stockfish ran out of time.');
           return AiCoachRequest(evidence: 'FEN: second try', allowedMoves: ISet<String>());
@@ -101,7 +107,7 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async =>
+        prepare: (_, _) async =>
             AiCoachRequest(evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
       ),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
@@ -118,7 +124,7 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async =>
+        prepare: (_, _) async =>
             AiCoachRequest(evidence: 'FEN: saved position', allowedMoves: ISet<String>()),
       ),
       defaultPreferences: {aiCoachHistoryStorageKey: savedHistory},
@@ -195,7 +201,7 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async =>
+        prepare: (_, _) async =>
             AiCoachRequest(evidence: 'FEN: example position', allowedMoves: ISet<String>()),
       ),
     );
@@ -213,7 +219,7 @@ void main() {
     final app = await makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async =>
+        prepare: (_, _) async =>
             AiCoachRequest(evidence: 'FEN: example position', allowedMoves: ISet<String>()),
       ),
     );
@@ -230,13 +236,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byType(TextField).first).obscureText, isTrue);
     await tester.enterText(find.byType(TextField).first, 'fake-widget-test-key');
+    await scrollTo(tester, find.text('Save'));
+    await tester.ensureVisible(find.text('Save'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(await SecureStorage.instance.read(key: aiCoachKeyStorage), 'fake-widget-test-key');
     expect(await SecureStorage.instance.read(key: aiCoachModelStorage), aiCoachDefaultModel);
+    await scrollTo(tester, find.text('Remove API key'));
+    await tester.ensureVisible(find.text('Remove API key'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Remove API key'));
     await tester.pumpAndSettle();
     expect(await SecureStorage.instance.read(key: aiCoachKeyStorage), isNull);
+    await scrollTo(tester, find.text('API key removed.'));
     expect(find.text('API key removed.'), findsOneWidget);
   });
 
@@ -252,7 +265,7 @@ void main() {
     }) => makeTestProviderScopeApp(
       tester,
       home: AiCoachScreen(
-        prepare: (_) async => AiCoachRequest(
+        prepare: (_, _) async => AiCoachRequest(
           evidence: 'FEN: saved position',
           allowedMoves: ISet<String>(),
           decision: decision,
@@ -594,6 +607,106 @@ void main() {
       await tester.tap(find.text('Open coach'));
       await tester.pumpAndSettle();
       expect(find.textContaining('only explains standard chess'), findsOneWidget);
+    });
+  });
+
+  group('coach level', () {
+    testWidgets('settings offer the three levels, describe the chosen one and save it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(tester, home: const AiCoachSettingsScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      for (final level in AiCoachLevel.values) {
+        expect(find.widgetWithText(ChoiceChip, level.label), findsOneWidget);
+      }
+      // Beginner is the default.
+      expect(find.text(AiCoachLevel.beginner.description), findsOneWidget);
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Beginner')).selected,
+        isTrue,
+      );
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Advanced'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AiCoachLevel.advanced.description), findsOneWidget);
+      expect(find.text(AiCoachLevel.beginner.description), findsNothing);
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Advanced')).selected,
+        isTrue,
+      );
+      expect(testBinding.sharedPreferences.getString(aiCoachLevelStorageKey), 'advanced');
+    });
+
+    testWidgets('the coach is prepared for the saved level and says which', (tester) async {
+      final levels = <AiCoachLevel>[];
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: AiCoachScreen(
+            prepare: (_, level) async {
+              levels.add(level);
+              return AiCoachRequest(evidence: 'FEN: x', allowedMoves: ISet<String>());
+            },
+          ),
+          defaultPreferences: {aiCoachLevelStorageKey: 'advanced'},
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(levels, [AiCoachLevel.advanced]);
+      expect(find.text('Coach level: Advanced'), findsOneWidget);
+    });
+
+    testWidgets('changing the level in settings analyses again for the new level', (tester) async {
+      final levels = <AiCoachLevel>[];
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: AiCoachScreen(
+            prepare: (_, level) async {
+              levels.add(level);
+              return AiCoachRequest(evidence: 'FEN: ${level.name}', allowedMoves: ISet<String>());
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(levels, [AiCoachLevel.beginner]);
+      expect(find.text('Coach level: Beginner'), findsOneWidget);
+
+      await tester.tap(find.text('AI coach settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Club player'));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(levels, [AiCoachLevel.beginner, AiCoachLevel.club]);
+      expect(find.text('Coach level: Club player'), findsOneWidget);
+    });
+
+    testWidgets('leaving the level alone does not analyse again', (tester) async {
+      var calls = 0;
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: AiCoachScreen(
+            prepare: (_, _) async {
+              calls++;
+              return AiCoachRequest(evidence: 'FEN: x', allowedMoves: ISet<String>());
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('AI coach settings'));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(calls, 1);
     });
   });
 }

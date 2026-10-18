@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_alternative.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 
 import '../../test_container.dart';
@@ -24,7 +25,11 @@ class ScriptedEngine(super.ref, final ClientEval? Function(Position position) sc
   final asked = <String>[];
 
   @override
-  Future<ClientEval?> evaluate(Position position, {Duration timeout = kAiCoachSearchTime}) async {
+  Future<ClientEval?> evaluate(
+    Position position, {
+    Duration? timeout,
+    AiCoachLevel level = AiCoachLevel.beginner,
+  }) async {
     asked.add(position.fen);
     return script(position);
   }

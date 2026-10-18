@@ -2,6 +2,7 @@ import 'package:dartchess/dartchess.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_facts.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/engine/practice_comment.dart';
@@ -36,16 +37,17 @@ AiCoachRequest makeAiCoachMoveRequest({
   String? opening,
   ClientEval? threatBefore,
   ClientEval? threatAfter,
+  AiCoachLevel level = AiCoachLevel.beginner,
 }) {
   if (!before.isLegal(played.move)) {
     throw const AiCoachException('That move is not legal in the position before it.');
   }
   final after = before.playUnchecked(played.move);
-  final beforeLines = describeEngineLines(before, evalBefore);
+  final beforeLines = describeEngineLines(before, evalBefore, level: level);
   // A move that ends the game (checkmate, stalemate, a draw) leaves nothing for the engine to
   // evaluate afterwards; the result is known.
   final gameOver = after.isGameOver;
-  final afterLines = gameOver ? null : describeEngineLines(after, evalAfter);
+  final afterLines = gameOver ? null : describeEngineLines(after, evalAfter, level: level);
 
   final mover = before.turn;
   final winningChancesBefore = evalBefore!.winningChances(mover);
@@ -78,12 +80,14 @@ AiCoachRequest makeAiCoachMoveRequest({
     evaluation: threatBefore,
     ifItWere: opponentName,
     meaning: 'what $opponentName was threatening before the move',
+    level: level,
   );
   final threatCreated = describeThreat(
     position: after,
     evaluation: threatAfter,
     ifItWere: moverName,
     meaning: 'what $moverName threatens after the move',
+    level: level,
   );
 
   final factsBefore = makeAiCoachFacts(before);
@@ -91,6 +95,7 @@ AiCoachRequest makeAiCoachMoveRequest({
 
   final evidence =
       'Task: explain the move that was played, not only the position.\n'
+      'Coach level: ${level.label}\n'
       'Position before the move (FEN): ${before.fen}\n'
       'Move history before the move (SAN): ${movesBefore.isEmpty ? '(none)' : movesBefore}\n'
       'Side that moved: ${aiCoachSideName(mover)}\n'

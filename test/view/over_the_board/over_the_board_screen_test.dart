@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override, ProviderOrFamily;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_engine.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/common/chess.dart';
 import 'package:lichess_mobile/src/model/common/eval.dart';
 import 'package:lichess_mobile/src/model/common/id.dart';
@@ -828,7 +829,11 @@ void main() {
 /// from the result dialog without a real search.
 class _InstantEngine(super.ref) extends AiCoachEngine {
   @override
-  Future<ClientEval?> evaluate(Position position, {Duration timeout = kAiCoachSearchTime}) async {
+  Future<ClientEval?> evaluate(
+    Position position, {
+    Duration? timeout,
+    AiCoachLevel level = AiCoachLevel.beginner,
+  }) async {
     final first = position.legalMoves.entries.firstWhere((e) => e.value.isNotEmpty);
     return CloudEval(
       position: position,
