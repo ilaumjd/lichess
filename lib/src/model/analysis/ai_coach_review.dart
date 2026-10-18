@@ -165,6 +165,25 @@ AiCoachReviewStats reviewStats({
   return (good: good, inaccuracies: inaccuracies, mistakes: mistakes, blunders: blunders);
 }
 
+/// The board for a key moment: the position before the move, with the move played and the
+/// engine's preferred move, which is a move from that position.
+AiCoachBoards aiCoachMomentBoards({
+  required IList<AiCoachPly> plies,
+  required AiCoachScan scan,
+  required AiCoachMoment moment,
+}) {
+  final ply = plies[moment.index];
+  final uci = scan[moment.index]?.pvs.firstOrNull?.moves.firstOrNull;
+  final best = uci == null ? null : Move.parse(uci);
+  return (
+    before: ply.before,
+    position: ply.before.playUnchecked(ply.move.move),
+    played: ply.move.move,
+    best: best != null && ply.before.isLegal(best) ? best : null,
+    orientation: ply.before.turn,
+  );
+}
+
 /// "17.Nf3" for White's move, "17...Nf3" for Black's.
 String aiCoachMoveLabel(AiCoachPly ply) =>
     '${ply.before.fullmoves}${ply.before.turn == Side.white ? '.' : '...'}${ply.move.san}';

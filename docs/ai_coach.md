@@ -23,6 +23,16 @@ engine's preferred move. The boards are turned to the side that moved (or is to 
 to fit the screen width, up to 360 px each. They show nothing while the position is still being
 analysed, and nothing for requests that have no single position to show (the game summary).
 
+**In the game review**, every key moment has a small board (up to 150 px) of the position *before* the
+move, with the engine's preferred move in green and the move played in red: the engine's better
+move is a move from that earlier position, so that is where it can be drawn. A note above the list
+explains the colours. **In "Why not this move?"**, the answer is followed by the position before the
+choice with the engine's move (green) and the move you asked about (red, labelled as such), and
+the position after your move. A saved "Why not X?" gets its board back by itself, in the coach
+screen and in the history, because the question text names the move and the position comes from
+the saved evidence: no engine and nothing extra stored. A question that names an illegal move, or
+any other question, draws nothing.
+
 Explanations saved earlier get their board too: **Explanation history** rebuilds it from the saved
 evidence (the position before the move, the move played and the engine's first choice), and
 shows no board when the evidence cannot be read. The text of the explanation is never turned into

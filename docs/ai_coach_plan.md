@@ -153,6 +153,4 @@ before implementation or any upstream contribution (see `AI_POLICY.md`).
   When that has happened, look at which patterns actually show up in the owner's games and build
   the labels around those, rather than guessing them now.
 
-- **Boards in the game review** (one small board per key moment) and a board for the move named in
-  "Why not this move?". The coach screen and the history already draw boards.
 

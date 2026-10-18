@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,6 +93,21 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Scrolls the review list until [finder] is on screen: the boards make the key moments tall, so
+  /// what comes after them is below the fold, and the list only builds what is near the screen.
+  Future<void> reveal(WidgetTester tester, Finder finder) async {
+    await tester.scrollUntilVisible(
+      finder,
+      300,
+      scrollable: find
+          .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+          .first,
+    );
+    // Something built a little below the edge is not scrolled to by the above.
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+  }
+
   Finder explainButton(int requests) =>
       find.text('Explain these moments and summarise ($requests requests to OpenAI)');
 
@@ -153,6 +169,46 @@ void main() {
     expect(requests, 0);
   });
 
+  testWidgets('every key moment has a small board of the position before the move', (tester) async {
+    await tester.pumpWidget(await app(tester));
+    await scan(tester);
+
+    final boards = tester.widgetList<StaticChessboard>(find.byType(StaticChessboard)).toList();
+    expect(boards, hasLength(2));
+    // Half-moves 2 and 5, in game order: each shows the position before that move, with the
+    // engine's preferred move and the move played drawn as arrows.
+    expect(boards[0].fen, input.plies[2].before.fen);
+    expect(boards[1].fen, input.plies[5].before.fen);
+    expect(boards[1].orientation, Side.black);
+    for (final board in boards) {
+      expect(board.shapes.whereType<Arrow>(), hasLength(2));
+    }
+    expect(find.textContaining('green arrow'), findsOneWidget);
+  });
+
+  testWidgets('reviewing one side shows only its boards', (tester) async {
+    await tester.pumpWidget(await app(tester, side: Side.white));
+    await scan(tester);
+    expect(find.byType(StaticChessboard), findsOneWidget);
+  });
+
+  testWidgets('a game with no mistakes shows no boards', (tester) async {
+    final quiet = parseAiCoachInput(_pgn);
+    await tester.pumpWidget(
+      await makeTestProviderScopeApp(
+        tester,
+        home: AiCoachReviewScreen(input: quiet),
+        overrides: {
+          aiCoachEngineProvider: aiCoachEngineProvider.overrideWith(
+            (ref) => _QuietEngine(ref, quiet.plies),
+          ),
+        },
+      ),
+    );
+    await scan(tester);
+    expect(find.byType(StaticChessboard), findsNothing);
+  });
+
   testWidgets('reviewing one side lists only its moments and needs fewer requests', (tester) async {
     await tester.pumpWidget(await app(tester, side: Side.white));
     await scan(tester);
@@ -167,11 +223,13 @@ void main() {
     await SecureStorage.instance.write(key: aiCoachKeyStorage, value: 'fake-widget-key');
     await scan(tester);
 
+    await reveal(tester, explainButton(3));
     await tester.tap(explainButton(3));
     await tester.pumpAndSettle();
 
     expect(tasks.where((t) => t.contains('review the whole game')), hasLength(1));
     expect(tasks.where((t) => t.contains('explain the move that was played')), hasLength(2));
+    await reveal(tester, find.text('Summary'));
     expect(find.text('Summary'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.textContaining('Overall: you blundered twice'),
@@ -190,8 +248,10 @@ void main() {
   testWidgets('without an API key it says so and can be tried again', (tester) async {
     await tester.pumpWidget(await app(tester, client: replying()));
     await scan(tester);
+    await reveal(tester, explainButton(3));
     await tester.tap(explainButton(3));
     await tester.pumpAndSettle();
+    await reveal(tester, find.textContaining('Add your OpenAI API key'));
     expect(find.textContaining('Add your OpenAI API key'), findsOneWidget);
     expect(explainButton(3), findsOneWidget);
     expect(find.text('Summary'), findsNothing);
@@ -226,15 +286,19 @@ void main() {
     await SecureStorage.instance.write(key: aiCoachKeyStorage, value: 'fake-widget-key');
     await scan(tester);
 
+    await reveal(tester, explainButton(3));
     await tester.tap(explainButton(3));
     await tester.pumpAndSettle();
+    await reveal(tester, find.textContaining('OpenAI request failed'));
     expect(find.textContaining('OpenAI request failed'), findsOneWidget);
     expect(calls, 2);
 
+    await reveal(tester, explainButton(3));
     await tester.tap(explainButton(3));
     await tester.pumpAndSettle();
     // The first moment was kept; only the second moment and the summary were asked for.
     expect(calls, 4);
+    await reveal(tester, find.text('Summary'));
     expect(find.text('Summary'), findsOneWidget);
   });
 

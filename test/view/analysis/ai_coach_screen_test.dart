@@ -514,6 +514,14 @@ void main() {
         await compare(tester, 'nf3');
 
         expect(find.text('You: Why not Nf3?'), findsOneWidget);
+        // The answer is drawn: the position before with both arrows, and the position after Nf3.
+        await scrollTo(tester, find.text('After the move'));
+        final drawn = tester.widgetList<StaticChessboard>(find.byType(StaticChessboard)).toList();
+        expect(drawn, hasLength(2));
+        expect(drawn[0].fen, Chess.initial.fen);
+        expect(drawn[1].fen, Chess.initial.play(Move.parse('g1f3')!).fen);
+        expect(drawn[1].lastMove, Move.parse('g1f3'));
+        expect(find.textContaining('Red arrow: the move you asked about'), findsOneWidget);
         // Nf3 came from the comparison evidence, so the answer passes the move check.
         expect(find.textContaining('Nf3 is fine but e4 grabs more space.'), findsOneWidget);
         expect(find.textContaining('Moves checked against'), findsOneWidget);
@@ -531,6 +539,46 @@ void main() {
         await scrollTo(tester, find.widgetWithText(TextField, moveField));
         final field = tester.widget<TextField>(find.widgetWithText(TextField, moveField));
         expect(field.controller!.text, isEmpty);
+      });
+
+      testWidgets('a saved "Why not" comes back with its board', (tester) async {
+        final withTurn = jsonEncode([
+          {
+            'savedAt': '2026-10-17T00:00:00Z',
+            'model': aiCoachDefaultModel,
+            'evidence': 'FEN: saved position',
+            'explanation': 'Protect your king before attacking.',
+            'followUps': [
+              {'question': 'Why not Nf3?', 'answer': 'Slower than e4.'},
+              {'question': 'Explain simpler', 'answer': 'Be safe.'},
+            ],
+          },
+        ]);
+        await tester.pumpWidget(await app(tester, history: withTurn, decision: decision()));
+        await openSaved(tester);
+
+        expect(find.text('You: Why not Nf3?'), findsOneWidget);
+        await scrollTo(tester, find.text('After the move'));
+        // One drawn board pair: for the "Why not", not for "Explain simpler".
+        expect(find.byType(StaticChessboard), findsNWidgets(2));
+      });
+
+      testWidgets('a question that names an illegal move draws nothing', (tester) async {
+        final withTurn = jsonEncode([
+          {
+            'savedAt': '2026-10-17T00:00:00Z',
+            'model': aiCoachDefaultModel,
+            'evidence': 'FEN: saved position',
+            'explanation': 'Protect your king before attacking.',
+            'followUps': [
+              {'question': 'Why not Ke4?', 'answer': 'Not possible.'},
+            ],
+          },
+        ]);
+        await tester.pumpWidget(await app(tester, history: withTurn, decision: decision()));
+        await openSaved(tester);
+        expect(find.text('You: Why not Ke4?'), findsOneWidget);
+        expect(find.byType(StaticChessboard), findsNothing);
       });
 
       testWidgets('an illegal move shows why and sends nothing', (tester) async {
@@ -773,6 +821,37 @@ void main() {
       );
       await tester.pump();
       expect(find.byType(StaticChessboard), findsNothing);
+    });
+
+    testWidgets('a saved "Why not" is drawn in the history too', (tester) async {
+      final history = jsonEncode([
+        {
+          'savedAt': '2026-10-17T00:00:00Z',
+          'model': aiCoachDefaultModel,
+          'evidence':
+              'Task: explain the move that was played, not only the position.\n'
+              'Position before the move (FEN): ${start.fen}\n'
+              'Move played: e4\n'
+              "The engine's first choice was d4.\n",
+          'explanation': 'A saved move explanation.',
+          'followUps': [
+            {'question': 'Why not Nf3?', 'answer': 'Slower than the engine move.'},
+          ],
+        },
+      ]);
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: const AiCoachHistoryScreen(),
+          defaultPreferences: {aiCoachHistoryStorageKey: history},
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('A saved move explanation.'));
+      await tester.pumpAndSettle();
+      await scrollTo(tester, find.text('Slower than the engine move.'));
+      // The move explanation has two boards and the "Why not" another two.
+      expect(find.byType(StaticChessboard), findsNWidgets(4));
     });
 
     testWidgets('a saved explanation shows its board in the history', (tester) async {

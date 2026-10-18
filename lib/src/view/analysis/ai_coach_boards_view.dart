@@ -15,11 +15,23 @@ const _playedColor = Color(0xCCCC3333);
 /// The biggest a single board gets, so it does not fill a tablet screen.
 const _maxBoardSize = 360.0;
 
+/// The size of the small board used in lists.
+const _compactBoardSize = 150.0;
+
 /// Draws the position of an explanation. For a move it shows the position before it, with the move
 /// played and the engine's preferred move as arrows, and the position after it, next to each other.
 /// For a position it shows one board with the engine's preferred move.
-class const AiCoachBoardsView({required final AiCoachBoards boards, super.key})
-    extends ConsumerWidget {
+class const AiCoachBoardsView({
+  required final AiCoachBoards boards,
+
+  /// One small board, without labels or legend: the position before the move with the arrows.
+  /// For lists, where several boards share the screen.
+  final bool compact = false,
+
+  /// What the red arrow stands for, in the legend.
+  final String playedLabel = 'the move played',
+  super.key,
+}) extends ConsumerWidget {
   Set<Shape> _arrows() {
     final best = boards.best;
     final played = boards.played;
@@ -40,6 +52,15 @@ class const AiCoachBoardsView({required final AiCoachBoards boards, super.key})
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (compact) {
+          return StaticChessboard(
+            size: constraints.maxWidth.clamp(0.0, _compactBoardSize),
+            fen: (before ?? boards.position).fen,
+            orientation: boards.orientation,
+            shapes: _arrows(),
+            settings: settings,
+          );
+        }
         const gap = 12.0;
         final hasTwo = before != null;
         final size = hasTwo
@@ -74,7 +95,7 @@ class const AiCoachBoardsView({required final AiCoachBoards boards, super.key})
             : [
                 if (boards.best != null) "Green arrow: the engine's preferred move.",
                 if (boards.played != null && boards.played != boards.best)
-                  'Red arrow: the move played.',
+                  'Red arrow: $playedLabel.',
               ].join(' ');
 
         return Column(

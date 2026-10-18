@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach.dart';
+import 'package:lichess_mobile/src/model/analysis/ai_coach_alternative.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_boards.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_history.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
@@ -110,6 +111,17 @@ class const AiCoachHistoryDetailScreen({required final AiCoachHistoryEntry entry
             padding: const EdgeInsets.only(top: 4, bottom: 16),
             child: SelectableText(turn.answer),
           ),
+          // A saved "Why not X?" gets its board back, from the saved evidence and the question.
+          if (aiCoachBoardsFromEvidence(entry.evidence) case final base?)
+            if (aiCoachAlternativeBoards(
+                  position: base.before ?? base.position,
+                  best: base.best,
+                  question: turn.question,
+                )
+                case final boards?) ...[
+              AiCoachBoardsView(boards: boards, playedLabel: 'the move you asked about'),
+              const SizedBox(height: 16),
+            ],
         ],
         ExpansionTile(
           title: const Text('Position and engine evidence'),

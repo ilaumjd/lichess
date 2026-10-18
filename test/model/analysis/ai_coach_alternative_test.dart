@@ -218,4 +218,62 @@ void main() {
       );
     });
   });
+
+  group('aiCoachAlternativeBoards', () {
+    const start = Chess.initial;
+    final best = Move.parse('e2e4');
+
+    AiCoachBoards? boards(String question, {Position? position}) =>
+        aiCoachAlternativeBoards(position: position ?? start, best: best, question: question);
+
+    test('draws the position, the named move and the engine move', () {
+      final result = boards('Why not Nf3?')!;
+      expect(result.before!.fen, start.fen);
+      expect(result.position.fen, start.play(Move.parse('g1f3')!).fen);
+      expect(result.played, Move.parse('g1f3'));
+      expect(result.best, best);
+      expect(result.orientation, Side.white);
+    });
+
+    test('reads the move however it was typed in the question', () {
+      expect(boards('Why not nf3?')!.played, Move.parse('g1f3'));
+      expect(boards('Why not g1f3?')!.played, Move.parse('g1f3'));
+      expect(boards('  Why not Nf3?  ')!.played, Move.parse('g1f3'));
+      final castling = fen('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1');
+      expect(boards('Why not O-O?', position: castling)!.played, isNotNull);
+    });
+
+    test('is seen from the side that has to choose', () {
+      final black = start.play(Move.parse('e2e4')!);
+      expect(boards('Why not e5?', position: black)!.orientation, Side.black);
+    });
+
+    test('is nothing for questions that do not name a move', () {
+      for (final question in [
+        'Explain simpler',
+        'What should I do differently?',
+        'Why not?',
+        'Why not Nf3',
+        'why not Nf3?',
+        'Why is Nf3 better?',
+        '',
+      ]) {
+        expect(boards(question), isNull, reason: question);
+      }
+    });
+
+    test('is nothing when the move is not legal in the position', () {
+      expect(boards('Why not Ke4?'), isNull);
+      expect(boards('Why not banana?'), isNull);
+    });
+
+    test('works without an engine move, and when the move named is the best one', () {
+      expect(
+        aiCoachAlternativeBoards(position: start, best: null, question: 'Why not e4?')!.best,
+        isNull,
+      );
+      final same = boards('Why not e4?')!;
+      expect(same.played, same.best);
+    });
+  });
 }

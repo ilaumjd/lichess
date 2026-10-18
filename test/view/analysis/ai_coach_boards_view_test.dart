@@ -132,4 +132,77 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  group('compact', () {
+    Future<void> showCompact(WidgetTester tester, AiCoachBoards boards) async {
+      await tester.pumpWidget(
+        await makeTestProviderScopeApp(
+          tester,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(width: 130, child: AiCoachBoardsView(boards: boards, compact: true)),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('is one small board of the position before the move, with the arrows', (
+      tester,
+    ) async {
+      await showCompact(tester, (
+        before: start,
+        position: afterE4,
+        played: e4,
+        best: Move.parse('d2d4'),
+        orientation: Side.white,
+      ));
+      final boards = tester.widgetList<StaticChessboard>(find.byType(StaticChessboard)).toList();
+      expect(boards, hasLength(1));
+      expect(boards.single.fen, start.fen);
+      expect(arrows(boards.single), hasLength(2));
+      expect(tester.getSize(find.byType(StaticChessboard)).width, lessThanOrEqualTo(130));
+      expect(find.text('Before the move'), findsNothing);
+      expect(find.textContaining('arrow'), findsNothing);
+    });
+
+    testWidgets('a position is drawn as it is', (tester) async {
+      await showCompact(tester, (
+        before: null,
+        position: afterE4,
+        played: null,
+        best: null,
+        orientation: Side.black,
+      ));
+      final board = tester.widget<StaticChessboard>(find.byType(StaticChessboard));
+      expect(board.fen, afterE4.fen);
+      expect(board.orientation, Side.black);
+    });
+  });
+
+  testWidgets('the red arrow can be named for a different kind of question', (tester) async {
+    await tester.pumpWidget(
+      await makeTestProviderScopeApp(
+        tester,
+        home: Scaffold(
+          body: Center(
+            child: AiCoachBoardsView(
+              playedLabel: 'the move you asked about',
+              boards: (
+                before: start,
+                position: afterE4,
+                played: e4,
+                best: Move.parse('d2d4'),
+                orientation: Side.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Red arrow: the move you asked about'), findsOneWidget);
+    expect(find.textContaining('the move played'), findsNothing);
+  });
 }

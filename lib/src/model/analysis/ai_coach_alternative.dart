@@ -132,3 +132,27 @@ Future<AiCoachAlternative> prepareAiCoachAlternative(
     moves: {san, ...bestLines.moves, ...afterLines.moves, ...facts.moves}.toISet(),
   );
 }
+
+/// The boards for a saved or shown "Why not X?" question, or null when [question] is not one or X
+/// is not a legal move in [position]. [position] is where the choice was made and [best] the
+/// engine's preferred move there. Needs no engine: it only draws what the question names.
+AiCoachBoards? aiCoachAlternativeBoards({
+  required Position position,
+  required Move? best,
+  required String question,
+}) {
+  final match = RegExp(r'^Why not (.+)\?$').firstMatch(question.trim());
+  if (match == null) return null;
+  try {
+    final move = parseAiCoachMoveInput(position, match.group(1)!);
+    return (
+      before: position,
+      position: position.playUnchecked(move),
+      played: move,
+      best: best,
+      orientation: position.turn,
+    );
+  } on AiCoachException {
+    return null;
+  }
+}

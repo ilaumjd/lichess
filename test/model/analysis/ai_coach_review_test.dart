@@ -322,4 +322,39 @@ void main() {
       expect(messages.first['content'], aiCoachReviewPromptFor(AiCoachLevel.club));
     });
   });
+
+  group('aiCoachMomentBoards', () {
+    final scan = scanFrom(italian, [20, 20, 20, -400, -400, -380, 300]);
+    final moments = pickKeyMoments(plies: italian, scan: scan);
+
+    test('is the position before the move, with the move played and the engine move', () {
+      final moment = moments.firstWhere((m) => m.index == 2);
+      final boards = aiCoachMomentBoards(plies: italian, scan: scan, moment: moment);
+      expect(boards.before!.fen, italian[2].before.fen);
+      expect(boards.position.fen, italian[2].before.playUnchecked(italian[2].move.move).fen);
+      expect(boards.played, italian[2].move.move);
+      // The scan's preferred move is a legal move from that position, and not the one played.
+      expect(boards.best, isNotNull);
+      expect(italian[2].before.isLegal(boards.best!), isTrue);
+      expect(boards.best, isNot(boards.played));
+      expect(boards.orientation, Side.white);
+    });
+
+    test('is seen from Black when Black moved', () {
+      final moment = moments.firstWhere((m) => m.index == 5);
+      expect(
+        aiCoachMomentBoards(plies: italian, scan: scan, moment: moment).orientation,
+        Side.black,
+      );
+    });
+
+    test('has no engine move when the scan had none for that position', () {
+      final moment = moments.firstWhere((m) => m.index == 2);
+      final emptied = scan.replace(
+        2,
+        CloudEval(position: italian[2].before, depth: 10, nodes: 1, pvs: const IListConst([])),
+      );
+      expect(aiCoachMomentBoards(plies: italian, scan: emptied, moment: moment).best, isNull);
+    });
+  });
 }

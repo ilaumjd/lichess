@@ -1,3 +1,4 @@
+import 'package:dartchess/dartchess.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/db/secure_storage.dart';
@@ -378,6 +379,17 @@ class _AiCoachScreenState() extends ConsumerState<AiCoachScreen> {
               padding: const EdgeInsets.only(top: 4, bottom: 16),
               child: SelectableText(turn.answer),
             ),
+            // A "Why not X?" is drawn: the position, X, and the engine's preferred move.
+            if (request?.decision case final decision?)
+              if (aiCoachAlternativeBoards(
+                    position: decision.position,
+                    best: Move.parse(decision.eval.pvs.first.moves.first),
+                    question: turn.question,
+                  )
+                  case final boards?) ...[
+                AiCoachBoardsView(boards: boards, playedLabel: 'the move you asked about'),
+                const SizedBox(height: 16),
+              ],
           ],
           if (_answer != null && request != null)
             if (_followUps.length >= kAiCoachMaxFollowUps)

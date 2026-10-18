@@ -10,6 +10,7 @@ import 'package:lichess_mobile/src/model/analysis/ai_coach_level.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_move.dart';
 import 'package:lichess_mobile/src/model/analysis/ai_coach_review.dart';
 import 'package:lichess_mobile/src/utils/navigation.dart';
+import 'package:lichess_mobile/src/view/analysis/ai_coach_boards_view.dart';
 import 'package:lichess_mobile/src/view/analysis/ai_coach_screen.dart';
 import 'package:lichess_mobile/src/view/settings/ai_coach_settings_screen.dart';
 import 'package:lichess_mobile/src/widgets/platform.dart';
@@ -310,19 +311,55 @@ class _AiCoachReviewScreenState() extends ConsumerState<AiCoachReviewScreen> {
               const Text('No clear mistakes were found in this game.')
             else ...[
               const Text('Key moments', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  "Each board is the position before the move: green arrow is the engine's "
+                  'preferred move, red arrow is the move played.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
               for (final moment in _moments)
                 Card(
-                  child: ListTile(
-                    title: Text(
-                      '${aiCoachMoveLabel(_plies[moment.index])}: '
-                      '${aiCoachVerdictText(moment.verdict)}',
-                    ),
-                    subtitle: Text(
-                      'Evaluation ${moment.evalBefore} to ${moment.evalAfter}'
-                      '${_notes[moment.index] == null ? '' : '\n\n${stripAiCoachNote(_notes[moment.index]!)}'}',
-                    ),
-                    isThreeLine: _notes[moment.index] != null,
+                  child: InkWell(
                     onTap: _notes[moment.index] == null ? null : () => _openMoment(moment),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 130,
+                            child: AiCoachBoardsView(
+                              compact: true,
+                              boards: aiCoachMomentBoards(
+                                plies: _plies,
+                                scan: _scan,
+                                moment: moment,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${aiCoachMoveLabel(_plies[moment.index])}: '
+                                  '${aiCoachVerdictText(moment.verdict)}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Evaluation ${moment.evalBefore} to ${moment.evalAfter}'
+                                  '${_notes[moment.index] == null ? '' : '\n\n${stripAiCoachNote(_notes[moment.index]!)}'}',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
             ],
